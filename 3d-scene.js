@@ -63,42 +63,6 @@ const staticPropsRoot = new THREE.Group();
 const dynamicRoot = new THREE.Group();
 worldRoot.add(environmentRoot, staticPropsRoot, dynamicRoot);
 
-// 렌더 전용 터미널 존: 실제 동선 좌표를 그대로 사용해 공항 내부가 단순한 빈 바닥으로 보이지 않게 함.
-const terminalPresentationRoot = new THREE.Group();
-terminalPresentationRoot.name = 'Terminal_Presentation_Zones';
-worldRoot.add(terminalPresentationRoot);
-function presentationPanel(name, x, z, width, depth, color, opacity = .62) {
-  const panel = new THREE.Mesh(
-    new THREE.BoxGeometry(width, .42, depth),
-    new THREE.MeshStandardMaterial({ color, transparent:true, opacity, roughness:.72, metalness:.04, emissive:color, emissiveIntensity:.08 }),
-  );
-  panel.name=name;
-  panel.position.set(x,2.25,z);
-  panel.receiveShadow=true;
-  terminalPresentationRoot.add(panel);
-}
-function presentationLine(name, points, color, opacity = .78) {
-  const geometry=new THREE.BufferGeometry().setFromPoints(points.map(([x,z])=>new THREE.Vector3(x,2.55,z)));
-  const line=new THREE.Line(geometry,new THREE.LineBasicMaterial({color,transparent:true,opacity}));
-  line.name=name;
-  terminalPresentationRoot.add(line);
-}
-presentationPanel('Zone_Checkin', 455, 640, 550, 142, 0x294f78, .45);
-presentationPanel('Zone_Security', 840, 478, 610, 104, 0x243244, .54);
-presentationPanel('Zone_Gate_Lounge', 730, 344, 1110, 80, 0x38516a, .38);
-presentationPanel('Zone_Retail_Arcade', 905, 690, 360, 98, 0x59432b, .32);
-for(let x=180;x<=1280;x+=55) presentationLine(`FloorGrid_V_${x}`,[[x,300],[x,750]],0x8eb0c8,.16);
-for(let z=322;z<=742;z+=42) presentationLine(`FloorGrid_H_${z}`,[[160,z],[1300,z]],0x8eb0c8,.16);
-for(let lane=0;lane<5;lane+=1){
-  const x=550+lane*140;
-  presentationLine(`SecurityLane_L_${lane}`,[[x-34,435],[x-34,532]],0xdc4f55,.85);
-  presentationLine(`SecurityLane_R_${lane}`,[[x+34,435],[x+34,532]],0xdc4f55,.85);
-}
-for(let lane=0;lane<6;lane+=1){
-  const x=220+lane*95;
-  presentationLine(`CheckinLane_${lane}`,[[x,664],[x,728]],0xe0b83c,.75);
-}
-
 const hemi = new THREE.HemisphereLight(0xb9d8ef, 0x15281e, 1.35);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe3ba, 2.2);
