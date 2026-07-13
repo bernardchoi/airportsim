@@ -1,6 +1,6 @@
 // 빌드 스텝이 없는 프로젝트이므로 버전 문자열 하나로 캐시를 관리하는 단순한 구조로 유지.
 // 정적 자산을 바꿨다면 이 문자열만 올리면 다음 방문 시 자동으로 캐시가 교체됨.
-const CACHE_NAME = 'skyport-v1';
+const CACHE_NAME = 'skyport-v2';
 const PRECACHE_URLS = [
   './',
   './index.html',
