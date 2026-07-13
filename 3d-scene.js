@@ -504,8 +504,9 @@ function syncPlanes(state) {
       return model;
     },
     (plane, record) => {
-      record.model.position.set(plane.x, Math.max(0, plane.alt*95), plane.y);
+      record.model.position.set(plane.x, Math.max(0, plane.alt*62), plane.y);
       record.model.rotation.y = -plane.hdg;
+      record.model.scale.setScalar(1.22);
       record.model.visible = true;
       const variant=planeVariant(plane);
       const lod0=record.model.getObjectByName(`${variant}_LOD0`);
@@ -557,14 +558,15 @@ function personVariant(item) {
 
 function syncPeople(state, time) {
   const maxPeople = wrap.clientWidth < 760 ? 34 : 76;
-  const people = [...state.pax, ...state.walkers, ...state.staff].filter((item) => item.delay == null || item.delay <= 0).slice(0,maxPeople);
+  const people = [...(state.lobbyPeople || []), ...state.pax, ...state.walkers, ...state.staff]
+    .filter((item) => item.delay == null || item.delay <= 0).slice(0,maxPeople);
   syncObjects(people, personRecords,
-    (item) => libraryClone(propLibrary, personVariant(item)),
+    (item) => libraryClone(propLibrary, personVariant(item), item.color),
     (item, record) => {
       const heading = movingHeading(item, record);
       record.model.position.set(item.x, item._moved ? .04+Math.sin(time*8+item.x)*.025 : .04, item.y);
       record.model.rotation.y = -heading + Math.PI/2;
-      record.model.scale.setScalar(5.2);
+      record.model.scale.setScalar(item.visualScale || 6.2);
     });
 }
 

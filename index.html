@@ -1334,6 +1334,17 @@ const BAGC  = ['#c0503a','#3a6ec0','#3aa06a','#8a5ac0','#c0a03a'];
 function personLook(){
   return {shirt:choice(SHIRT), pants:choice(PANTS), hair:choice(HAIRC), skin:choice(SKINC), bag:choice(BAGC), seed:rand(0,9)};
 }
+// 공항 개장 직후에도 터미널이 비어 보이지 않도록 대기 승객을 렌더 전용으로 유지.
+// 실제 운항 승객과 분리해 수입·대기열·탑승 계산에는 영향을 주지 않음.
+const LOBBY_PASSENGERS = [
+  [260,640], [302,656], [348,630], [392,668], [448,642], [492,660],
+  [548,632], [596,670], [654,646], [710,660], [760,362], [818,344],
+  [874,368], [936,346], [996,366], [1058,348], [1112,370], [1170,350],
+].map(([x,y], index)=>Object.assign({
+  id:`lobby-${index}`, x, y, _moved:false, phase:index*.67,
+  color:SHIRT[index%SHIRT.length], visualScale:6.4 + (index%3)*.3,
+  luggage:index%3===0,
+}, personLook()));
 function spawnDepPax(plane, delay){
   pax.push(Object.assign({
     kind:'dep', flightId:plane.id, gateIdx:plane.gate.idx,
@@ -2888,6 +2899,37 @@ function drawGlass(){
     ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
   }
 }
+function drawHybridActors(){
+  const actors=[];
+  const add=(depth, drawActor)=>actors.push({depth, drawActor});
+  const drawPax=(q)=>drawPerson(q.x, q.y, {
+    shirt:q.shirt, pants:q.pants, hair:q.hair, skin:q.skin, bag:q.bag,
+    moving:q._moved, phase:q.phase, seed:q.seed, angry:q.angry,
+    shopping:q.state==='shopping', luggage:q.luggage,
+  });
+  const drawWorker=(worker)=>{
+    const style=ROLE_STYLE[worker.role] || {};
+    drawPerson(worker.x, worker.y, {
+      shirt:style.shirt||worker.shirt, pants:style.pants||worker.pants,
+      hair:worker.hair, skin:worker.skin, hat:style.hat, hatC:style.hatC,
+      vest:style.vest, moving:worker._moved, phase:worker.phase, seed:worker.seed,
+      shopping:worker.dir==='retailVisit', armsUp:worker.armsUp,
+    });
+  };
+
+  // 하이브리드 렌더에서는 3D 모델 외에 명확한 2D 실루엣을 겹쳐
+  // 원거리·고도 상태에서도 항공기와 인물을 즉시 식별할 수 있게 함.
+  for(const plane of planes.concat(ambient, AMBIENT_PARKED)) add(plane.x+plane.y+12, ()=>drawPlaneIso(plane));
+  for(const vehicle of vehicles) if(ART.vehiclesReady) add(vehicle.x+vehicle.y+8, ()=>drawVehicleSprite(vehicle));
+  for(const passenger of LOBBY_PASSENGERS.concat(pax)) add(passenger.x+passenger.y+4, ()=>drawPax(passenger));
+  for(const walker of walkers){
+    if(walker.delay>0 && walker.dir==='in') continue;
+    add(walker.x+walker.y+4, ()=>drawWorker(walker));
+  }
+  for(const worker of staff) add(worker.x+worker.y+4, ()=>drawWorker(worker));
+  actors.sort((a,b)=>a.depth-b.depth);
+  for(const actor of actors) actor.drawActor();
+}
 function drawAmbient(n){
   const h = S.dayMin/60;
   let dusk = 0;
@@ -3042,6 +3084,7 @@ function draw(){
   applyCam();
   drawStatic();
   if(document.getElementById('canvasWrap').classList.contains('three-ready')){
+    drawHybridActors();
     ctx.setTransform(1,0,0,1,0,0);
     drawAmbient(nightAmount());
     return;
@@ -3822,7 +3865,7 @@ function doClick(e){
 /* ══════════════════════════ 메인 루프 ══════════════════════════ */
 window.getSkyportRenderState = ()=>({
   S, weather, cam, planes: planes.concat(ambient, AMBIENT_PARKED),
-  pax, walkers, staff, carts, vehicles, gates,
+  pax, lobbyPeople:LOBBY_PASSENGERS, walkers, staff, carts, vehicles, gates,
   gameT, started, runwayUser,
 });
 /* 자동화 테스트·디버그 훅: rAF가 정지된 환경에서 시뮬레이션을 수동 구동 */
