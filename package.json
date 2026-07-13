@@ -5,6 +5,7 @@
     "optimize:3d": "mkdir -p assets/3d && for f in assets/3d-src/*.glb; do b=$(basename $f); gltf-transform optimize $f assets/3d/$b --compress meshopt --flatten false --join false --palette false --instance false; done",
     "inspect:3d": "for f in assets/3d/*.glb; do gltf-transform inspect $f; done",
     "validate:3d": "node tools/validate-3d-assets.mjs",
+    "validate:code": "node --check 3d-scene.js && node --check sw.js && for f in tools/*.mjs; do node --check \"$f\"; done && node tools/validate-source.mjs",
     "build:icons": "node tools/gen-icons.mjs"
   },
   "dependencies": {

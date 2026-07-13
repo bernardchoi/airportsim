@@ -152,9 +152,12 @@ function buildSkyEnvironment() {
       }
     `,
   });
-  skyScene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 24, 16), skyMat));
+  const skyGeometry = new THREE.SphereGeometry(50, 24, 16);
+  skyScene.add(new THREE.Mesh(skyGeometry, skyMat));
   const target = pmrem.fromScene(skyScene, 0.035);
   scene.environment = target.texture;
+  skyGeometry.dispose();
+  skyMat.dispose();
   pmrem.dispose();
 }
 buildSkyEnvironment();
@@ -233,7 +236,10 @@ const FilmGrainShader = {
 renderer.info.autoReset = false;
 let composer = null, bloomPass = null, tiltShiftPass = null, grainPass = null, composerMobile = null;
 function buildComposer(mobile) {
-  if (composer) composer.dispose();
+  if (composer) {
+    for (const pass of composer.passes) pass.dispose?.();
+    composer.dispose();
+  }
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), mobile ? 0.4 : 0.58, 0.55, mobile ? 0.86 : 0.8);
@@ -398,10 +404,19 @@ function libraryClone(library, name, accent = null) {
     node.receiveShadow = true;
     if (accent && (/Accent$/.test(node.material?.name || '') || node.material?.vertexColors)) {
       node.material = node.material.clone();
+      node.material.userData.runtimeClone = true;
       node.material.color.set(accent);
     }
   });
   return clone;
+}
+
+function disposeRuntimeMaterials(model) {
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    const materials = Array.isArray(node.material) ? node.material : [node.material];
+    for (const material of materials) if (material?.userData.runtimeClone) material.dispose();
+  });
 }
 
 function addStaticModel(name, x, z, scale = 1, rotation = 0, accent = null) {
@@ -430,6 +445,7 @@ function rebuildStaticProps(state) {
   ].join(':');
   if (signature === propsSignature) return;
   propsSignature = signature;
+  for (const model of staticPropsRoot.children) disposeRuntimeMaterials(model);
   staticPropsRoot.clear();
   const checkXs = [230,325,420,515,610,705];
   for (let i=0; i<state.S.up.counters; i+=1) {
@@ -482,6 +498,7 @@ function syncObjects(items, records, create, update) {
   const alive = new Set(items);
   for (const [ref, record] of records) {
     if (alive.has(ref)) continue;
+    disposeRuntimeMaterials(record.model);
     record.model.removeFromParent();
     records.delete(ref);
   }
@@ -610,7 +627,11 @@ function updateWeather(state, dt) {
     for(let i=0;i<rainCount;i+=1){
       pos[i*3+1]-=dt*(type==='storm'?260:170);
       pos[i*3]+=dt*(type==='storm'?34:18);
-      if(pos[i*3+1]<2) pos[i*3+1]=Math.random()*260+240;
+      if(pos[i*3+1]<2) {
+        pos[i*3]=Math.random()*1450-50;
+        pos[i*3+1]=Math.random()*260+240;
+        pos[i*3+2]=Math.random()*950-20;
+      }
     }
     rain.geometry.attributes.position.needsUpdate=true;
   }
@@ -618,9 +639,9 @@ function updateWeather(state, dt) {
   scene.fog.color.set(type==='fog'?0x9aaab5:type==='storm'?0x111d2c:0x183041);
 }
 
-const runwayMaterials=[];
+const runwayMaterials=new Set();
 environmentRoot.traverse((node)=>{
-  if(node.isMesh && ['M_Runway_Light','M_Taxi_Light','M_Amber_Light','M_Warm_Glass'].includes(node.material?.name)) runwayMaterials.push(node.material);
+  if(node.isMesh && ['M_Runway_Light','M_Taxi_Light','M_Amber_Light','M_Warm_Glass'].includes(node.material?.name)) runwayMaterials.add(node.material);
 });
 
 function updateLighting(state) {
@@ -667,6 +688,7 @@ function resize() {
   if(width===lastWidth&&height===lastHeight)return;
   lastWidth=width;lastHeight=height;
   const mobile=width<760;
+  renderer.shadowMap.enabled=!mobile;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,mobile?1:1.45));
   renderer.setSize(width,height,false);
   if(mobile!==composerMobile) buildComposer(mobile);

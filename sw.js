@@ -1,6 +1,6 @@
 // 빌드 스텝이 없는 프로젝트이므로 버전 문자열 하나로 캐시를 관리하는 단순한 구조로 유지.
 // 정적 자산을 바꿨다면 이 문자열만 올리면 다음 방문 시 자동으로 캐시가 교체됨.
-const CACHE_NAME = 'skyport-v2';
+const CACHE_NAME = 'skyport-v3';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -54,16 +54,36 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      }).catch(() => cached);
-    }),
-  );
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) return;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(async (response) => {
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put('./index.html', response.clone());
+          }
+          return response;
+        })
+        .catch(async () => (await caches.match('./index.html')) || Response.error()),
+    );
+    return;
+  }
+
+  event.respondWith((async () => {
+    const cached = await caches.match(event.request);
+    if (cached) return cached;
+    try {
+      const response = await fetch(event.request);
+      if (response.ok) {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, response.clone());
+      }
+      return response;
+    } catch {
+      return new Response('Offline', {status:503, statusText:'Offline'});
+    }
+  })());
 });

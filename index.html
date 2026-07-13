@@ -731,42 +731,107 @@ function normalizeRetailDecor(){
 
 /* ══════════════════════════ 게임 상태 ══════════════════════════ */
 const SAVE_KEY = 'skyportSaveV2';
+const DEFAULT_UPGRADES = {
+  counters:1, security:1, gates:2, ground:0, amenity:0, rapid:0, tower:0,
+  crewLounge:0, staffRoom:0, checkinTech:0, securityTech:0, baggage:0, passengerCare:0,
+};
+const UPGRADE_LIMITS = {
+  counters:6, security:5, gates:6, ground:6, amenity:6, rapid:4, tower:5,
+  crewLounge:5, staffRoom:5, checkinTech:5, securityTech:5, baggage:5, passengerCare:5,
+};
+const DEFAULT_SATISFACTION = {passenger:62, visitor:62, pilot:62, crew:62, staff:62};
+const finiteOr = (value, fallback) => Number.isFinite(value) ? value : fallback;
+const boundedInt = (value, fallback, min, max) => clamp(Math.floor(finiteOr(value, fallback)), min, max);
+function normalizeSavedDecor(value){
+  if(!Array.isArray(value)) return [];
+  const seen = new Set();
+  const result = [];
+  for(const item of value.slice(0, 120)){
+    if(!item || !Object.prototype.hasOwnProperty.call(DECOR, item.t)) continue;
+    const x = finiteOr(item.x, NaN), y = finiteOr(item.y, NaN);
+    if(!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const decor = {t:item.t, x:clamp(x, TERM.x1+16, TERM.x2-16), y:clamp(y, LOUNGE.y1+8, TERM.y2-18)};
+    const key = `${decor.t}:${Math.round(decor.x)}:${Math.round(decor.y)}`;
+    if(seen.has(key)) continue;
+    seen.add(key);
+    result.push(decor);
+  }
+  return result;
+}
+function normalizeSavedState(raw){
+  const source = raw && typeof raw==='object' ? raw : {};
+  const sourceUp = source.up && typeof source.up==='object' ? source.up : {};
+  const sourceSat = source.sat && typeof source.sat==='object' ? source.sat : {};
+  const up = {};
+  for(const [key, fallback] of Object.entries(DEFAULT_UPGRADES)){
+    up[key] = boundedInt(sourceUp[key], fallback, fallback, UPGRADE_LIMITS[key]);
+  }
+  const sat = {};
+  for(const [key, fallback] of Object.entries(DEFAULT_SATISFACTION)){
+    const legacyValue = key==='passenger' && !Object.prototype.hasOwnProperty.call(sourceSat, key) ? sourceSat.pax : sourceSat[key];
+    sat[key] = clamp(finiteOr(legacyValue, fallback), 0, 100);
+  }
+  const day = boundedInt(source.day, 1, 1, 1000000);
+  return {
+    money:clamp(finiteOr(source.money, 15000), -1000000000, 1000000000000),
+    rep:clamp(finiteOr(source.rep, 50), 0, 100),
+    day,
+    dayMin:clamp(finiteOr(source.dayMin, 8*60), 0, 1439.99),
+    speed:1,
+    sound:source.sound!==false,
+    name:typeof source.name==='string' && source.name.trim() ? source.name.trim().slice(0, 32) : '스카이포트',
+    theme:boundedInt(source.theme, 0, 0, THEMES.length-1),
+    runwayDir:source.runwayDir===27 ? 27 : 9,
+    autoLand:source.autoLand===true,
+    autoTO:source.autoTO===true,
+    up,
+    decor:normalizeSavedDecor(source.decor),
+    sat,
+    totFlights:boundedInt(source.totFlights, 0, 0, 1000000000),
+    totPax:boundedInt(source.totPax, 0, 0, 1000000000),
+    otpOn:boundedInt(source.otpOn, 0, 0, 1000000000),
+    otpTot:boundedInt(source.otpTot, 0, 0, 1000000000),
+    streak:boundedInt(source.streak, 0, 0, 1000000),
+    goalClaimedDay:boundedInt(source.goalClaimedDay, 0, 0, day),
+  };
+}
+function readSave(key){
+  try{
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  }catch(error){
+    console.warn(`[저장] ${key} 불러오기 실패`, error);
+    return null;
+  }
+}
 let S = {
   money: 15000, rep: 50, day: 1, dayMin: 8*60,
   speed: 1, sound: true, name:'스카이포트', theme: 0, runwayDir:9,
   autoLand:false, autoTO:false,
-  up: {counters:1, security:1, gates:2, ground:0, amenity:0, rapid:0, tower:0, crewLounge:0, staffRoom:0, checkinTech:0, securityTech:0, baggage:0, passengerCare:0},
+  up: {...DEFAULT_UPGRADES},
   decor: [],
-  sat: {passenger:62, visitor:62, pilot:62, crew:62, staff:62},
+  sat: {...DEFAULT_SATISFACTION},
   totFlights: 0, totPax: 0, otpOn: 0, otpTot: 0,
   streak: 0, goalClaimedDay: 0,
 };
 (function load(){
-  try{
-    let d = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if(!d) d = JSON.parse(localStorage.getItem('skyportSaveV1'));
-    if(d && typeof d.money==='number'){
-      Object.assign(S, d);
-      S.up = Object.assign({counters:1,security:1,gates:2,ground:0,amenity:0,rapid:0,tower:0,crewLounge:0,staffRoom:0,checkinTech:0,securityTech:0,baggage:0,passengerCare:0}, d.up||{});
-      S.sat = Object.assign({passenger:62,visitor:62,pilot:62,crew:62,staff:62}, d.sat||{});
-      if(d.sat && Number.isFinite(d.sat.pax) && !Object.prototype.hasOwnProperty.call(d.sat,'passenger')) S.sat.passenger=d.sat.pax;
-      S.runwayDir = d.runwayDir===27 ? 27 : 9;
-      S.decor = Array.isArray(d.decor) ? d.decor : [];
-      normalizeRetailDecor();
-      S.streak = Number.isFinite(d.streak) ? d.streak : 0;
-      S.goalClaimedDay = Number.isFinite(d.goalClaimedDay) ? d.goalClaimedDay : 0;
-      S.speed = 1;
-    }
-  }catch(e){}
+  const loaded = readSave(SAVE_KEY) || readSave('skyportSaveV1');
+  if(!loaded) return;
+  S = normalizeSavedState(loaded);
+  normalizeRetailDecor();
 })();
 function save(){
-  localStorage.setItem(SAVE_KEY, JSON.stringify({
-    money:S.money, rep:S.rep, day:S.day, dayMin:S.dayMin, name:S.name, theme:S.theme, runwayDir:S.runwayDir,
-    autoLand:S.autoLand, autoTO:S.autoTO,
-    up:S.up, decor:S.decor, sat:S.sat, totFlights:S.totFlights, totPax:S.totPax,
-    otpOn:S.otpOn, otpTot:S.otpTot, sound:S.sound, streak:S.streak,
-    goalClaimedDay:S.goalClaimedDay
-  }));
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      money:S.money, rep:S.rep, day:S.day, dayMin:S.dayMin, name:S.name, theme:S.theme, runwayDir:S.runwayDir,
+      autoLand:S.autoLand, autoTO:S.autoTO,
+      up:S.up, decor:S.decor, sat:S.sat, totFlights:S.totFlights, totPax:S.totPax,
+      otpOn:S.otpOn, otpTot:S.otpTot, sound:S.sound, streak:S.streak,
+      goalClaimedDay:S.goalClaimedDay
+    }));
+  }catch(error){
+    console.warn('[저장] 게임 상태 저장 실패', error);
+  }
 }
 
 let planes = [], pax = [], bags = [], particles = [], walkers = [], staff = [], carts = [];
