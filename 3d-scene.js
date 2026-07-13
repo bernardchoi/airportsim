@@ -28,11 +28,27 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 // 래스터 바닥에는 이미 접지 그림자가 베이크되어 있어, 동적 액터(항공기·차량)에 한해서만
-// 그림자를 드리움. 과거 알파 캔버스(alpha:true) 조합에서 블랙 아티팩트가 있었으므로
-// 재활성화 후 실제 GPU에서 시각 검증 필요.
-renderer.shadowMap.enabled = true;
+// 그림자를 드리움. 저사양/모바일 GPU에서는 포스트프로세싱 렌더타깃과 합쳐 텍스처 메모리
+// 압박(컨텍스트 로스 유발)이 커지므로 데스크톱에서만 활성화함.
+const isMobileGpu = wrap.clientWidth < 760;
+renderer.shadowMap.enabled = !isMobileGpu;
 // r171+ 에서 PCFSoftShadowMap이 PCFShadowMap에 통합되어 소프트 필터링이 기본 적용됨.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+
+// WebGL 컨텍스트 로스(저사양 GPU 메모리 압박·탭 백그라운드 복귀 등)에 대한 방어 코드.
+// 처리하지 않으면 캔버스가 검게 비거나 깜빡이고, 3D가 담당하는 승객·승무원 등 동적
+// 오브젝트가 영영 다시 그려지지 않는 상태로 멈춤.
+let contextLost = false;
+canvas.addEventListener('webglcontextlost', (event) => {
+  event.preventDefault();
+  contextLost = true;
+  console.warn('[3D] WebGL 컨텍스트 손실 — 복구 대기 중');
+}, false);
+canvas.addEventListener('webglcontextrestored', () => {
+  contextLost = false;
+  console.warn('[3D] WebGL 컨텍스트 복구됨 — 씬 재구성');
+  location.reload();
+}, false);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x183041, 0.00042);
@@ -668,6 +684,7 @@ window.dispatchEvent(new CustomEvent('skyport:3d-ready'));
 
 function render(now) {
   requestAnimationFrame(render);
+  if(contextLost) return;
   const state=getState();
   if(!state)return;
   const frameDelay=wrap.clientWidth<760?40:30;
