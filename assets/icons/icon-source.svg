@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#0e2238"/>
+      <stop offset="100%" stop-color="#04090f"/>
+    </radialGradient>
+    <linearGradient id="tower" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4fc3ff"/>
+      <stop offset="100%" stop-color="#2196f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- 활주로 -->
+  <rect x="86" y="392" width="340" height="16" rx="4" fill="#132437"/>
+  <g fill="#ffc857">
+    <rect x="112" y="398" width="26" height="6" rx="2"/>
+    <rect x="160" y="398" width="26" height="6" rx="2"/>
+    <rect x="326" y="398" width="26" height="6" rx="2"/>
+    <rect x="374" y="398" width="26" height="6" rx="2"/>
+  </g>
+  <!-- 관제탑 -->
+  <rect x="230" y="196" width="52" height="16" rx="4" fill="#0a1620"/>
+  <rect x="238" y="208" width="36" height="150" rx="8" fill="url(#tower)"/>
+  <path d="M204 200 Q256 152 308 200 L296 240 Q256 210 216 240 Z" fill="#eaf3fd"/>
+  <rect x="196" y="196" width="120" height="14" rx="7" fill="#0e2238"/>
+  <rect x="248" y="146" width="16" height="30" rx="4" fill="#8fa6bd"/>
+  <circle cx="256" cy="138" r="9" fill="#ff5063"/>
+  <circle cx="256" cy="138" r="16" fill="none" stroke="#ff5063" stroke-width="2" opacity=".35"/>
+</svg>

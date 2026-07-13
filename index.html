@@ -1,0 +1,3819 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스카이포트 타이쿤 — 공항 시뮬레이션</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#04090f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="스카이포트">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root{
+    --bg:#04090f; --panel:#0a141f; --panel2:#0d1a29; --card:#0e1c2d; --card2:#132437;
+    --line:#1d3450; --line2:#152840; --divider:#0f1d2e;
+    --txt:#eaf3fd; --dim:#7f96b0; --dim2:#5a7089;
+    --accent:#2196f3; --accent2:#4fc3ff; --gold:#ffc857;
+    --green:#31d97c; --red:#ff5063; --purple:#c9a1ff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;
+    display:flex; flex-direction:column; overflow:hidden; user-select:none;
+  }
+  button{font-family:inherit}
+  /* ══════════ 상단 스탯 바 ══════════ */
+  #topbar{
+    display:flex; align-items:stretch; height:58px; flex:0 0 auto;
+    background:linear-gradient(180deg,#0b1622,#070f19);
+    border-bottom:1px solid #14273c; z-index:8;
+    box-shadow:0 12px 32px rgba(0,0,0,.4);
+  }
+  .tseg{
+    display:flex; align-items:center; gap:9px; padding:0 16px;
+    border-right:1px solid var(--divider); white-space:nowrap;
+  }
+  .tseg:last-child{border-right:0}
+  #topbar .logo{font-weight:850; font-size:15.5px; letter-spacing:.3px; color:#fff}
+  .ic{
+    width:30px; height:30px; border-radius:50%; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:800;
+  }
+  .icGreen{background:rgba(49,217,124,.14); color:var(--green)}
+  .icGold{background:rgba(255,200,87,.14); color:var(--gold)}
+  .icBlue{background:rgba(79,195,255,.13); color:var(--accent2)}
+  .icSky{background:rgba(79,195,255,.10); font-size:15px}
+  .tv{display:flex; flex-direction:column; justify-content:center; line-height:1.25}
+  .tv b{font-size:13.5px; font-weight:750; font-variant-numeric:tabular-nums; letter-spacing:.1px}
+  .tv small{font-size:10px; color:var(--dim)}
+  .tv small.up{color:var(--green); font-weight:700}
+  .repTrack{width:62px; height:5px; background:#0a1521; border-radius:3px; overflow:hidden; margin-top:3px; display:block}
+  .repTrack i{display:block; height:100%; width:50%; background:linear-gradient(90deg,#22b96a,#3ee88c); border-radius:3px; transition:width .3s}
+  #otpRing{position:relative; background:conic-gradient(var(--green) 0deg,#142639 0deg)}
+  #otpRing::after{content:'🕓'; position:absolute; inset:3.5px; border-radius:50%; background:#0b1622; display:flex; align-items:center; justify-content:center; font-size:11px}
+  .spacer{flex:1}
+  .ctrlSeg{gap:6px; padding:0 14px}
+  .tbtn{
+    width:34px; height:34px; border-radius:9px; border:1px solid transparent;
+    background:transparent; color:#c7d8ea; font-size:13px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; letter-spacing:-2px;
+  }
+  .tbtn:hover{background:var(--card2); border-color:var(--line)}
+  .tbtn.active{background:rgba(33,150,243,.18); color:var(--accent2); border-color:rgba(33,150,243,.45)}
+  /* ══════════ 공용 버튼 ══════════ */
+  .btn{
+    background:var(--card2); color:var(--txt); border:1px solid var(--line);
+    border-radius:8px; padding:6px 12px; font-size:12.5px; cursor:pointer; font-weight:650;
+  }
+  .btn:hover{border-color:var(--accent)}
+  .btn:disabled{opacity:.35; cursor:default}
+  .btn.active{background:var(--accent); color:#08111f; border-color:var(--accent)}
+  .btn.primary{background:var(--green); color:#04220f; border-color:transparent}
+  .btn.primary:hover{filter:brightness(1.1)}
+  .btn.danger{background:#3d1d24; border-color:#6e2a37; color:#ff9aa5}
+  .btn.gold{background:var(--gold); color:#2b1e04; border-color:transparent; font-weight:800}
+  /* ══════════ 메인 ══════════ */
+  #main{flex:1; display:flex; min-height:0}
+  #canvasWrap{flex:1; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle at 50% 35%,#122736,#03080e 76%); min-width:0; position:relative; overflow:hidden}
+  canvas{width:auto;height:100%;max-width:none;max-height:none;display:block;border-radius:2px;filter:brightness(1.08) saturate(1.07) contrast(1.02)}
+  #cv{transition:opacity .35s ease; touch-action:none}
+  #world3d{position:absolute;inset:0;z-index:1;width:100%!important;height:100%!important;max-width:none;max-height:none;filter:none;opacity:0;pointer-events:none;transition:opacity .45s ease}
+  #canvasWrap.three-ready #world3d{opacity:1}
+  #canvasWrap.three-ready #cv{opacity:1}
+  #canvasWrap.debug-3d-only #cv{opacity:0!important}
+  /* ── 이벤트 토스트 ── */
+  #eventToast{
+    position:absolute; top:18px; left:18px; z-index:6; width:250px;
+    background:rgba(15,23,36,.94); border:1px solid rgba(255,200,87,.4); border-radius:13px;
+    padding:13px 14px; box-shadow:0 16px 40px rgba(0,0,0,.5); backdrop-filter:blur(10px);
+    animation:toastIn .3s ease;
+  }
+  #eventToast.hidden{display:none}
+  @keyframes toastIn{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+  #eventToast .etHead{color:var(--gold); font-size:11px; font-weight:850; letter-spacing:.8px; margin-bottom:7px; display:flex; align-items:center; gap:6px}
+  #eventToast .etTitle{font-size:13px; font-weight:800; margin-bottom:3px}
+  #eventToast .etBody{font-size:11.5px; color:#c3d3e6; line-height:1.5; margin-bottom:10px}
+  #eventToast .btn{padding:5px 15px; font-size:11.5px; float:right}
+  #eventToast::after{content:''; display:block; clear:both}
+  /* ── 상태 배너 & 배치 힌트 ── */
+  #banner{
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    background:rgba(12,18,32,.92); border:1px solid var(--line); border-radius:99px;
+    padding:8px 22px; font-size:13px; font-weight:700; display:none; z-index:5;
+    box-shadow:0 4px 24px rgba(0,0,0,.5); white-space:nowrap;
+  }
+  #banner.storm{border-color:#5a7dd0; color:#a9c2ff}
+  #banner.med{border-color:var(--red); color:#ffb3b3}
+  #banner.vip{border-color:var(--gold); color:var(--gold)}
+  #banner.info{border-color:var(--accent); color:#bcd6ff}
+  #placeHint{
+    position:absolute; bottom:88px; left:50%; transform:translateX(-50%);
+    background:rgba(12,18,32,.92); border:1px solid var(--accent); border-radius:9px;
+    padding:7px 16px; font-size:12.5px; display:none; z-index:5; color:#bcd6ff;
+  }
+  /* ── 오늘의 목표 ── */
+  #missionPanel{
+    position:absolute; bottom:18px; left:18px; z-index:4; width:242px;
+    background:rgba(13,20,33,.92); border:1px solid rgba(85,120,168,.5);
+    border-radius:14px; padding:13px 15px; box-shadow:0 14px 34px rgba(0,0,0,.35);
+    backdrop-filter:blur(10px); pointer-events:none;
+  }
+  #missionPanel .mpHead{display:flex; align-items:center; gap:7px; font-size:12px; font-weight:850; margin-bottom:4px}
+  #missionPanel .mpHead .st{width:20px;height:20px;border-radius:6px;background:rgba(255,200,87,.15);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:11px}
+  #missionTitle{font-size:11px;color:var(--dim);margin-bottom:8px}
+  .missionRow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:11.5px;margin-top:8px;color:#c9d9ec}
+  .missionRow b{font-variant-numeric:tabular-nums;color:#eaf3fd;font-size:11.5px}
+  .missionBar{grid-column:1/-1;height:5px;background:#0a1420;border-radius:9px;overflow:hidden;margin-top:-2px}
+  .missionBar span{display:block;height:100%;width:0;background:linear-gradient(90deg,#22b96a,#3ee88c);transition:width .3s;border-radius:9px}
+  #missionReward{color:var(--gold);font-size:10.5px;margin-top:10px;font-weight:700}
+  #missionPanel.complete{border-color:rgba(61,220,132,.65)}
+  /* ── 하단 중앙 도크 ── */
+  #dock{
+    position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+    display:flex; gap:9px; z-index:4;
+  }
+  .dockBtn{
+    width:62px; height:60px; border-radius:13px; cursor:pointer;
+    background:rgba(13,21,34,.9); border:1px solid rgba(70,105,150,.45);
+    color:#d7e5f4; font-size:10.5px; font-weight:700;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    backdrop-filter:blur(8px); box-shadow:0 10px 26px rgba(0,0,0,.35);
+  }
+  .dockBtn span{font-size:19px; line-height:1}
+  .dockBtn:hover{border-color:var(--accent); background:rgba(20,34,52,.95)}
+  .dockBtn.active{border-color:var(--accent); color:var(--accent2)}
+  /* ══════════ 우측 관제 패널 ══════════ */
+  #side{
+    width:378px; flex:0 0 378px; background:linear-gradient(180deg,#0b1521,#081020);
+    border-left:1px solid #17293e; display:flex; flex-direction:column; min-height:0;
+  }
+  #tabs{display:flex; border-bottom:1px solid var(--line2); background:#0a1420; flex:0 0 auto}
+  #tabs .tab{
+    flex:1; text-align:center; padding:13px 0; font-size:13px; font-weight:750;
+    color:var(--dim); cursor:pointer; border:0; border-bottom:2px solid transparent;
+    background:transparent;
+  }
+  #tabs .tab.on{color:#fff; border-bottom-color:var(--accent); background:linear-gradient(180deg,#102136,#0c1929)}
+  .pane{flex:1; overflow-y:auto; padding:13px 14px; display:none; min-height:0}
+  .pane.on{display:block}
+  #side h3,.secTitle{font-size:12.5px; color:#d9e7f6; font-weight:800; letter-spacing:.2px; margin:2px 2px 10px}
+  #opsStatus{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--dim);margin:-4px 2px 9px}
+  #opsPulse{color:var(--green);font-weight:750}
+  /* ── 접근 항공기 피처 카드 ── */
+  #featCard{
+    background:linear-gradient(180deg,#101f33,#0d1a2b);
+    border:1px solid #223c5c; border-radius:13px; margin-bottom:14px;
+    position:relative; overflow:hidden; box-shadow:0 10px 28px rgba(0,0,0,.3);
+  }
+  #featCard::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3.5px; background:var(--accent)}
+  #featCard.urgent::before{background:var(--red)}
+  #featCard.vipCard::before{background:var(--gold)}
+  #featCard .fcIn{padding:13px 14px 14px 17px}
+  .fcTop{display:flex; align-items:flex-start; gap:11px; margin-bottom:11px}
+  .fcPlane{
+    width:38px;height:38px;border-radius:10px;background:rgba(79,195,255,.1);
+    display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto;
+  }
+  .fcId{flex:1;min-width:0}
+  .fcId b{font-size:18px;font-weight:850;letter-spacing:.4px;display:block}
+  .fcId span{font-size:11px;color:var(--dim);display:block;margin-top:2px}
+  .fcUrg{text-align:right;flex:0 0 auto}
+  .fcUrg small{display:block;font-size:9.5px;color:var(--dim);margin-bottom:2px}
+  .fcUrg b{font-size:12.5px;font-weight:800}
+  .fcUrg.hi b{color:var(--red)} .fcUrg.hi::after{content:'';display:none}
+  .fcUrg.mid b{color:var(--accent2)} .fcUrg.vip b{color:var(--gold)}
+  .fcStats{
+    display:grid; grid-template-columns:1fr 1.25fr 1fr; gap:1px;
+    background:var(--line2); border:1px solid var(--line2); border-radius:9px;
+    overflow:hidden; margin-bottom:12px;
+  }
+  .fcStats>div{background:#0c1826; padding:8px 9px}
+  .fcStats small{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--dim);margin-bottom:4px}
+  .fcStats b{font-size:12px;font-weight:750;font-variant-numeric:tabular-nums}
+  .fcStats b.ok{color:var(--green)} .fcStats b.warn{color:var(--gold)} .fcStats b.bad{color:var(--red)}
+  .bigAct{
+    width:100%; padding:15px 0; border:0; border-radius:10px; cursor:pointer;
+    background:linear-gradient(180deg,#2ea6ff,#1467e0);
+    color:#fff; font-size:16.5px; font-weight:850; letter-spacing:1px;
+    box-shadow:0 8px 24px rgba(33,150,243,.35), inset 0 1px 0 rgba(255,255,255,.25);
+    display:flex; align-items:center; justify-content:center; gap:9px;
+  }
+  .bigAct:hover{filter:brightness(1.08)}
+  .bigAct:disabled{background:#1b2c42; color:#61799a; box-shadow:none; cursor:default; font-size:13.5px; letter-spacing:.2px}
+  .bigAct.push{background:linear-gradient(180deg,#ffb64d,#e07f14); box-shadow:0 8px 24px rgba(255,166,45,.3), inset 0 1px 0 rgba(255,255,255,.25); color:#241300}
+  .bigAct.to{background:linear-gradient(180deg,#3fe08d,#149a56); box-shadow:0 8px 24px rgba(49,217,124,.3), inset 0 1px 0 rgba(255,255,255,.25); color:#03230f}
+  .fcSub{display:flex; gap:1px; margin-top:10px; border:1px solid var(--line2); border-radius:9px; overflow:hidden; background:var(--line2)}
+  .fcSub button{
+    flex:1; padding:9px 0; border:0; background:#0c1826; color:#b9cde3;
+    font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .fcSub button:hover{background:#122338; color:#fff}
+  .fcSub button:disabled{opacity:.4; cursor:default}
+  #featCard .fcEmpty{padding:26px 14px; text-align:center; color:var(--dim); font-size:12px}
+  #featCard .fcEmpty b{display:block;font-size:26px;margin-bottom:8px;opacity:.5}
+  /* ── 관제 목록 ── */
+  .listHead{display:flex;justify-content:space-between;align-items:center;margin:0 2px 9px}
+  .listHead .secTitle{margin:0}
+  #listFilter{
+    background:var(--card2); color:#c7d8ea; border:1px solid var(--line);
+    border-radius:7px; padding:4px 8px; font-size:11px; font-family:inherit;
+  }
+  .fRow{
+    display:grid; grid-template-columns:30px 1fr auto auto; gap:10px; align-items:center;
+    background:var(--card); border:1px solid var(--line2); border-radius:10px;
+    padding:9px 11px; margin-bottom:6px; cursor:pointer; position:relative;
+  }
+  .fRow:hover{border-color:#2c4a6e}
+  .fRow.sel{border-color:var(--accent); background:#0f2135}
+  .fRow.med{border-left:3px solid var(--red)}
+  .fRow.vip{border-left:3px solid var(--gold)}
+  .fRow.flash{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold)}
+  .fRow .al{
+    width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:9.5px;font-weight:850;color:#06101c;letter-spacing:.3px;
+  }
+  .fRow .fInfo{min-width:0}
+  .fRow .fInfo b{display:block;font-size:12.5px;font-weight:800;letter-spacing:.3px}
+  .fRow .fInfo span{display:block;font-size:10px;color:var(--dim);margin-top:1px}
+  .fRow .fOrig{font-size:11px;color:#a5bad2;font-variant-numeric:tabular-nums}
+  .fRow .fRight{text-align:right}
+  .fRow .fStatus{display:block;font-size:11.5px;font-weight:750}
+  .fRow .fTime{display:block;font-size:10px;color:var(--dim);margin-top:1px;font-variant-numeric:tabular-nums}
+  .c-blue{color:var(--accent2)} .c-green{color:var(--green)} .c-gold{color:var(--gold)} .c-red{color:var(--red)} .c-dim{color:var(--dim)}
+  .fRow .fBar{grid-column:1/-1;height:3px;background:#0a1420;border-radius:3px;overflow:hidden;margin-top:-2px;display:none}
+  .fRow .fBar i{display:block;height:100%;width:0;background:var(--accent)}
+  #noFlights{color:var(--dim);font-size:12px;padding:8px 4px}
+  /* ── 운영 요약 (컴팩트) ── */
+  #opsCompact{margin-top:14px;border-top:1px solid var(--line2);padding-top:12px}
+  #resourceRow{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:9px}
+  .resourceCell{background:var(--card);border:1px solid var(--line2);border-radius:9px;padding:8px 9px}
+  .resourceCell span{display:block;color:var(--dim);font-size:9.5px;margin-bottom:3px}
+  .resourceCell b{font-size:11.5px;font-variant-numeric:tabular-nums}
+  #runwayControl{display:flex;gap:6px;margin:0 0 9px}
+  #runwayControl .btn{flex:1;padding:7px 8px;font-size:11.5px}
+  #runwayControl small{display:block;color:var(--dim);font-size:9.5px;font-weight:600;margin-top:2px}
+  #autoRow{display:flex;gap:6px;margin-bottom:9px}
+  #autoRow .btn{flex:1;padding:6px 4px;font-size:11.5px}
+  #satPanel{background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:9px;margin-bottom:9px}
+  #satPanel .satTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:10px;color:var(--dim)}
+  #satAverage{font-weight:800;font-size:11px;color:var(--green)}
+  #satGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+  .satCell{min-width:0;text-align:center}
+  .satCell span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:9px}
+  .satCell b{display:block;font-size:11px;font-variant-numeric:tabular-nums;margin-top:2px}
+  .satCell i{display:block;height:3px;border-radius:3px;background:var(--accent);margin:3px 1px 0}
+  #nextAction{border-left:3px solid var(--accent);padding-left:9px;color:#cfe1ff;font-size:11.5px;line-height:1.45}
+  #nextAction strong{display:block;color:#fff;font-size:12px;margin-bottom:1px}
+  /* ── 하단 퀵액션 툴바 ── */
+  #sideTools{
+    display:grid; grid-template-columns:repeat(5,1fr); flex:0 0 auto;
+    border-top:1px solid var(--line2); background:#0a1420;
+  }
+  .qa{
+    border:0; border-right:1px solid var(--divider); background:transparent; cursor:pointer;
+    padding:11px 0 10px; color:#c3d5e8; font-size:10px; font-weight:700;
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+  }
+  .qa:last-child{border-right:0}
+  .qa span{font-size:18px; line-height:1}
+  .qa:hover{background:#0f1e30; color:#fff}
+  .qa:disabled{opacity:.35; cursor:default}
+  .qa.cd{color:#5a7089}
+  /* ── 운영 기록 ── */
+  #log{
+    flex:0 0 96px; overflow-y:auto; border-top:1px solid var(--line2);
+    padding:6px 13px; font-size:11px; color:var(--dim); line-height:1.55;
+    transition:flex-basis .25s ease;
+  }
+  body.logWide #log{flex-basis:230px}
+  #log .good{color:var(--green)} #log .bad{color:var(--red)} #log .info{color:var(--accent2)} #log .ev{color:#c9a1ff}
+  #log::before{content:'운영 기록';display:block;color:#5f7799;font-size:9px;font-weight:800;letter-spacing:1px;margin-bottom:2px}
+  /* ══════════ 확장/꾸미기 패널 ══════════ */
+  .shopItem{
+    display:flex; align-items:center; gap:9px; background:var(--card);
+    border:1px solid var(--line2); border-radius:10px; padding:8px 11px; margin-bottom:6px; font-size:12px;
+  }
+  .shopItem .info{flex:1; min-width:0}
+  .shopItem .nm{font-weight:700; font-size:12.5px}
+  .shopItem .ds{color:var(--dim); font-size:10.5px}
+  .shopItem .lv{color:var(--gold); font-size:11px; font-variant-numeric:tabular-nums}
+  .shopItem .buy{flex:0 0 auto; min-width:76px; text-align:center}
+  #nameRow{display:flex; gap:6px; margin-bottom:12px}
+  #nameInput{
+    flex:1; background:#0a1420; border:1px solid var(--line); border-radius:7px;
+    color:var(--txt); padding:6px 10px; font-size:13px; min-width:0; font-family:inherit;
+  }
+  #themes{display:flex; gap:7px; margin-bottom:14px; flex-wrap:wrap}
+  .themeChip{
+    width:52px; height:40px; border-radius:8px; border:2px solid var(--line); cursor:pointer;
+    position:relative; overflow:hidden;
+  }
+  .themeChip.on{border-color:var(--accent)}
+  .themeChip .g{position:absolute; inset:0 0 55% 0}
+  .themeChip .f{position:absolute; inset:45% 0 0 0}
+  .themeChip span{
+    position:absolute; bottom:1px; left:0; right:0; text-align:center;
+    font-size:8.5px; color:#fff; text-shadow:0 1px 2px #000;
+  }
+  #decorGrid{display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:10px}
+  .decorCard{
+    background:var(--card); border:1px solid var(--line2); border-radius:10px;
+    padding:8px; text-align:center; cursor:pointer; font-size:11.5px;
+  }
+  .decorCard:hover{border-color:var(--accent)}
+  .decorCard.on{border-color:var(--green); box-shadow:0 0 0 1px var(--green)}
+  .decorCard .em{font-size:21px}
+  .decorCard .nm{font-weight:700; margin:2px 0 1px}
+  .decorCard .cost{color:var(--gold); font-size:11px}
+  .decorCard .eff{color:var(--dim); font-size:10px}
+  /* ══════════ 모달 ══════════ */
+  .modal{
+    position:absolute; inset:0; background:rgba(3,7,13,.8); display:flex;
+    align-items:center; justify-content:center; z-index:10; backdrop-filter:blur(4px);
+  }
+  .modal.hidden{display:none}
+  .modalBox{
+    width:min(580px,92%); background:var(--panel2); border:1px solid var(--line);
+    border-radius:18px; padding:28px 30px; max-height:88vh; overflow-y:auto;
+    box-shadow:0 30px 80px rgba(0,0,0,.55);
+  }
+  .modalBox h1{font-size:21px; margin-bottom:4px}
+  .modalBox h1 span{color:var(--accent2)}
+  .modalBox .sub{color:var(--dim); font-size:13px; margin-bottom:16px}
+  .tut{display:flex; gap:12px; margin-bottom:12px; font-size:13px; line-height:1.5}
+  .tut .n{
+    flex:0 0 25px; height:25px; border-radius:50%; background:var(--card2);
+    border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    font-weight:800; color:var(--accent2); font-size:13px;
+  }
+  .tut b{color:var(--gold)}
+  .modalBox .foot{margin-top:18px; display:flex; gap:10px; justify-content:flex-end}
+  #reportBody,#statsBody{font-size:13.5px; line-height:2; margin-top:6px}
+  #reportBody .rrow,#statsBody .rrow{display:flex; justify-content:space-between; border-bottom:1px dashed var(--line2)}
+  #reportBody .rrow b,#statsBody .rrow b{font-variant-numeric:tabular-nums}
+  .keyHint{font-size:9px;color:#7488aa;margin-left:3px}
+  .btn:focus-visible,.tab:focus-visible,.themeChip:focus-visible,.decorCard:focus-visible,.tbtn:focus-visible{outline:2px solid #79b9ff;outline-offset:2px}
+  /* ══════════ 반응형 ══════════ */
+  @media (max-width:1620px){ .tseg .tv small{display:none} .tseg{padding:0 12px} }
+  @media (max-width:1440px){ #uiPaxSeg{display:none} }
+  @media (max-width:1330px){ #uiWxSeg{display:none} #side{width:348px;flex-basis:348px} }
+  @media (max-width:1180px){ #uiFlightsSeg{display:none} #missionPanel{width:212px} }
+  @media (max-width:760px){
+    body{overflow:auto;min-height:100%;height:auto}
+    #topbar{position:sticky;top:0;z-index:20;height:auto;flex-wrap:wrap;padding:4px 0}
+    #topbar .logo{font-size:13px}
+    #main{display:block;min-height:auto}
+    #canvasWrap{height:clamp(220px,59.6vw,290px);min-height:220px}
+    #canvasWrap canvas{width:100%;height:auto;max-height:none}
+    #side{width:100%;flex-basis:auto;height:560px;border-left:0;border-top:1px solid var(--line)}
+    #missionPanel{top:10px;bottom:auto;left:10px;width:186px;padding:9px 10px}
+    #missionPanel .mpHead,#missionTitle,#missionReward{display:none}
+    .missionRow{font-size:10.5px;margin-top:5px}
+    #dock{bottom:8px} .dockBtn{width:52px;height:50px}
+    #eventToast{width:200px;top:10px;right:10px;left:auto}
+    #banner{top:8px;max-width:calc(100% - 22px);overflow:hidden;text-overflow:ellipsis}
+    .modalBox{padding:22px 20px}
+    .modalBox .sub{line-height:1.55}
+    /* 터치 타깃 확대 — 데스크톱용 좁은 패딩 대신 44px 안팎의 손가락 히트 영역 확보 */
+    .btn{padding:11px 14px;font-size:13.5px;min-height:42px}
+    .tbtn{width:42px;height:42px}
+    #runwayControl .btn{padding:12px 8px;font-size:12.5px;min-height:42px}
+    #autoRow .btn{padding:11px 4px;font-size:12.5px;min-height:40px}
+    .fcSub button{padding:13px 0;min-height:42px}
+  }
+  @media (max-width:420px){
+    /* 220px 안팎으로 눌린 캔버스 위에서 목표 카드·도크가 3D 뷰를 거의 다 가리는 문제 보정.
+       실측(375px): missionPanel 109px + dock 50px → 실제로 보이는 장면은 ~47px에 불과했음. */
+    #missionPanel{width:150px;padding:7px 9px}
+    .missionRow{margin-top:2px}
+    .missionRow ~ .missionRow{display:none}
+    #dock{bottom:6px;gap:6px}
+    .dockBtn{width:44px;height:42px}
+    #eventToast{width:168px;padding:9px 10px;top:6px}
+    #eventToast .etTitle{font-size:11.5px}
+    #eventToast .etBody{font-size:10px;margin-bottom:6px}
+    #banner{top:6px;font-size:11px;padding:6px 14px}
+  }
+  ::-webkit-scrollbar{width:8px} ::-webkit-scrollbar-thumb{background:#1c3049; border-radius:4px}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="tseg"><span class="logo" id="uiLogo">✈ 스카이포트 타이쿤</span></div>
+  <div class="tseg"><span class="ic icGreen">₩</span><div class="tv"><b id="uiMoney">₩0</b><small class="up" id="uiRate">+₩0/h</small></div></div>
+  <div class="tseg"><span class="ic icGold">★</span><div class="tv"><b>평판 <span id="uiRep">2.5</span></b><span class="repTrack"><i id="repfill"></i></span></div></div>
+  <div class="tseg"><span class="ic icBlue">📅</span><div class="tv"><b id="uiDay">1일차 (월)</b></div></div>
+  <div class="tseg"><span class="ic icBlue">🕐</span><div class="tv"><b id="uiTime">08:00</b></div></div>
+  <div class="tseg" id="uiFlightsSeg"><span class="ic icBlue">✈</span><div class="tv"><b id="uiFlights">0 / 0</b><small>운항</small></div></div>
+  <div class="tseg" id="uiPaxSeg"><span class="ic icBlue">👥</span><div class="tv"><b id="uiPax">0</b><small>탑승객</small></div></div>
+  <div class="tseg"><span class="ic" id="otpRing"></span><div class="tv"><b>정시율 <span id="uiOtp">—</span></b><small id="uiStreak">연속 0편</small></div></div>
+  <div class="tseg" id="uiWxSeg"><span class="ic icSky" id="uiWxIcon">☀️</span><div class="tv"><b id="uiTemp">18°C</b><small id="uiWxLabel">맑음</small></div></div>
+  <div class="spacer"></div>
+  <div class="tseg ctrlSeg">
+    <button class="tbtn" id="spd0" title="일시정지 (Space)" aria-label="일시정지">⏸</button>
+    <button class="tbtn active" id="spd1" title="1배속" aria-label="1배속">▶</button>
+    <button class="tbtn" id="spd2" title="2배속" aria-label="2배속">▶▶</button>
+    <button class="tbtn" id="spd3" title="3배속" aria-label="3배속">▶▶▶</button>
+    <button class="tbtn" id="sndBtn" aria-label="소리 켜기 또는 끄기">🔊</button>
+    <button class="tbtn" id="helpBtn" title="도움말·설정" aria-label="도움말">⚙️</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="canvasWrap">
+    <canvas id="world3d" aria-label="3D 공항 시뮬레이션 월드"></canvas>
+    <canvas id="cv" width="1560" height="930"></canvas>
+    <div id="eventToast" class="hidden" role="alert">
+      <div class="etHead">🔔 이벤트</div>
+      <div class="etTitle" id="toastTitle">이벤트</div>
+      <div class="etBody" id="toastBody"></div>
+      <button class="btn gold" id="toastOk">확인</button>
+    </div>
+    <section id="missionPanel" aria-live="polite">
+      <div class="mpHead"><span class="st">★</span> 오늘의 목표</div>
+      <div id="missionTitle">안전한 허브 운영</div>
+      <div class="missionRow"><span>운항 완료</span><b id="goalFlights">0 / 3</b><div class="missionBar"><span id="goalFlightsBar"></span></div></div>
+      <div class="missionRow"><span>정시 출발</span><b id="goalOtp">0 / 2</b><div class="missionBar"><span id="goalOtpBar"></span></div></div>
+      <div class="missionRow"><span>운영 수입</span><b id="goalIncome">₩0 / ₩4,000</b><div class="missionBar"><span id="goalIncomeBar"></span></div></div>
+      <div id="missionReward">완료 보상 ₩2,500 · 평판 +2</div>
+    </section>
+    <div id="banner"></div>
+    <div id="placeHint"></div>
+    <div id="dock">
+      <button class="dockBtn" id="camHome" title="카메라 초기화 (H)"><span>📷</span>카메라</button>
+      <button class="dockBtn" id="infoBtn" title="도움말"><span>ℹ️</span>정보</button>
+      <button class="dockBtn" id="statsBtn" title="운영 통계"><span>📊</span>통계</button>
+      <button class="dockBtn" id="alertBtn" title="운영 기록 확장"><span>🔔</span>알림</button>
+    </div>
+  </div>
+  <div id="side">
+    <div id="tabs">
+      <button class="tab on" data-pane="paneATC">관제</button>
+      <button class="tab" data-pane="paneShop">확장</button>
+      <button class="tab" data-pane="paneCustom">꾸미기</button>
+    </div>
+    <div class="pane on" id="paneATC">
+      <div id="opsStatus"><span id="shiftLabel">주간 근무 · 정상 운영</span><span id="opsPulse">● LIVE</span></div>
+      <div class="secTitle">접근 중인 항공기</div>
+      <div id="featCard"><div class="fcEmpty"><b>✈</b>접근 중인 항공기가 없습니다</div></div>
+      <div class="listHead">
+        <span class="secTitle">관제 목록</span>
+        <select id="listFilter" aria-label="관제 목록 필터">
+          <option value="all">전체</option>
+          <option value="app">접근</option>
+          <option value="gnd">지상</option>
+          <option value="dep">출발</option>
+        </select>
+      </div>
+      <div id="strips"><div id="noFlights">접근 중인 항공편이 없습니다…</div></div>
+      <div id="opsCompact">
+        <div id="resourceRow">
+          <div class="resourceCell"><span>활주로</span><b id="runwayState">사용 가능</b></div>
+          <div class="resourceCell"><span>빈 게이트</span><b id="gateState">2 / 2</b></div>
+          <div class="resourceCell"><span>대기 항공기</span><b id="holdState">0편</b></div>
+        </div>
+        <div id="runwayControl">
+          <button class="btn" id="runwayBtn">활주로 09L 운용<small id="runwayHint">바람 분석 중</small></button>
+        </div>
+        <div id="autoRow" style="display:none">
+          <button class="btn" id="autoLandBtn">🛬 자동 착륙: OFF</button>
+          <button class="btn" id="autoTOBtn" style="display:none">🛫 자동 이륙: OFF</button>
+        </div>
+        <div id="satPanel" aria-live="polite">
+          <div class="satTop"><span>공항 만족도</span><b id="satAverage">안정</b></div>
+          <div id="satGrid">
+            <div class="satCell" data-sat="passenger"><span>이용객</span><b>62</b><i></i></div>
+            <div class="satCell" data-sat="visitor"><span>방문객</span><b>62</b><i></i></div>
+            <div class="satCell" data-sat="crew"><span>승무원</span><b>62</b><i></i></div>
+            <div class="satCell" data-sat="pilot"><span>기장</span><b>62</b><i></i></div>
+            <div class="satCell" data-sat="staff"><span>공항 직원</span><b>62</b><i></i></div>
+          </div>
+        </div>
+        <div id="nextAction"><strong>운영 준비 완료</strong><span>항공편 접근을 기다리는 중</span></div>
+      </div>
+    </div>
+    <div class="pane" id="paneShop">
+      <h3>공항 확장</h3>
+      <div id="shop"></div>
+    </div>
+    <div class="pane" id="paneCustom">
+      <h3>공항 이름</h3>
+      <div id="nameRow">
+        <input id="nameInput" maxlength="10" placeholder="공항 이름">
+        <button class="btn" id="nameApply">변경</button>
+      </div>
+      <h3>터미널 테마</h3>
+      <div id="themes"></div>
+      <h3>시설 배치 — 카드를 누른 뒤 터미널을 클릭</h3>
+      <div id="decorGrid"></div>
+      <button class="btn danger" id="removeBtn" style="width:100%">🔨 철거 모드 (환불 50%)</button>
+      <div style="color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6">
+        · 상업시설은 보안검색을 통과한 승객이 들러 소비합니다. 탑승구 근처가 명당!<br>
+        · 벤치·화분 등 편의물은 매일 자정 평판을 회복시킵니다.<br>
+        · 우클릭 또는 ESC로 배치를 취소합니다.
+      </div>
+    </div>
+    <div id="sideTools">
+      <button class="qa" id="qaGround" title="푸시백 대기 항공기에 토잉카 배차"><span>🚛</span>지상 차량</button>
+      <button class="qa" id="qaFuel" title="조업 중인 항공기 급유·조업 긴급 완료 (₩400)"><span>⛽</span>급유</button>
+      <button class="qa" id="qaMaint" title="정비팀 투입 — 기장·승무원 만족 회복 (₩600)"><span>🔧</span>정비</button>
+      <button class="qa" id="qaSec" title="보안 순찰 강화 — 직원 만족·평판 회복 (₩500)"><span>🛡️</span>보안</button>
+      <button class="qa" id="qaClean" title="특별 청소 — 이용객·방문객 만족 회복 (₩300)"><span>🧹</span>청소</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modalBox">
+    <h1><span>스카이포트</span> 국제공항에 오신 것을 환영합니다!</h1>
+    <div class="sub">당신은 이 공항의 총괄 운영자입니다. 활주로의 마샬러부터 체크인 직원, 파일럿과 승무원까지 — 모두가 당신의 지휘 아래 움직입니다.</div>
+    <div class="tut"><div class="n">1</div><div>항공편이 접근하면 <b>착륙 허가</b>를 내리세요. 활주로와 빈 게이트가 모두 필요하며, 대기 시간이 끝나면 회항합니다.</div></div>
+    <div class="tut"><div class="n">2</div><div>게이트 도착 후 <b>하기 → 조업 → 탑승 → 푸시백 → 이륙</b> 순서로 운영합니다. 관제실의 ‘다음 조치’가 필요한 결정을 알려줍니다.</div></div>
+    <div class="tut"><div class="n">3</div><div><b>오늘의 목표</b>를 달성해 보너스를 받고 시설을 확장하세요. Space 일시정지, 1~3 배속, 휠 확대, 드래그 이동을 지원합니다.</div></div>
+    <div class="foot">
+      <button class="btn" id="resetBtn">저장 초기화</button>
+      <button class="btn primary" id="startBtn">공항 운영 시작 ✈</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="report">
+  <div class="modalBox">
+    <h1>📋 <span id="repTitle">1일차</span> 일일 결산</h1>
+    <div id="reportBody"></div>
+    <div class="foot"><button class="btn primary" id="reportClose">업무 시작</button></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="statsModal">
+  <div class="modalBox">
+    <h1>📊 공항 운영 통계</h1>
+    <div id="statsBody"></div>
+    <div class="foot"><button class="btn primary" id="statsClose">닫기</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ══════════════════════════ 기본 도구 ══════════════════════════ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const W = 1560, H = 930;
+const rand=(a,b)=>a+Math.random()*(b-a);
+const randi=(a,b)=>Math.floor(rand(a,b+1));
+const choice=a=>a[Math.floor(Math.random()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const dist=(x1,y1,x2,y2)=>Math.hypot(x2-x1,y2-y1);
+const lerpAng=(a,b,t)=>{let d=b-a; while(d>Math.PI)d-=Math.PI*2; while(d<-Math.PI)d+=Math.PI*2; return a+d*t;};
+
+/* ══════════════════════════ 아이소메트릭 투영 ══════════════════════════ */
+const ISO_C = 0.83, ISO_S = 0.415, ISO_OX = 560, ISO_OY = 90;
+function iso(x, y, z){ return [ISO_OX + (x-y)*ISO_C, ISO_OY + (x+y)*ISO_S - (z||0)]; }
+function unproject(sx, sy){
+  const a = (sx-ISO_OX)/ISO_C, b = (sy-ISO_OY)/ISO_S;
+  return [(b+a)/2, (b-a)/2];
+}
+function isoPath(pts){
+  ctx.beginPath();
+  for(let i=0;i<pts.length;i++){
+    const s = iso(pts[i][0], pts[i][1], pts[i][2]||0);
+    i ? ctx.lineTo(s[0],s[1]) : ctx.moveTo(s[0],s[1]);
+  }
+  ctx.closePath();
+}
+function flat(x, y, w, h, color){
+  isoPath([[x,y],[x+w,y],[x+w,y+h],[x,y+h]]);
+  ctx.fillStyle = color; ctx.fill();
+}
+function shade(hex, amt){
+  if(hex[0] !== '#') return hex;
+  const n = parseInt(hex.slice(1),16);
+  const r = clamp((n>>16)+amt,0,255), g = clamp(((n>>8)&255)+amt,0,255), b = clamp((n&255)+amt,0,255);
+  return `rgb(${r},${g},${b})`;
+}
+function box(x, y, w, h, hz, c, z0){
+  z0 = z0||0;
+  isoPath([[x+w,y,z0+hz],[x+w,y+h,z0+hz],[x+w,y+h,z0],[x+w,y,z0]]);
+  ctx.fillStyle = shade(c,-24); ctx.fill();
+  ctx.strokeStyle='rgba(2,8,15,.22)'; ctx.lineWidth=.55; ctx.stroke();
+  isoPath([[x,y+h,z0+hz],[x+w,y+h,z0+hz],[x+w,y+h,z0],[x,y+h,z0]]);
+  ctx.fillStyle = shade(c,-42); ctx.fill(); ctx.stroke();
+  isoPath([[x,y,z0+hz],[x+w,y,z0+hz],[x+w,y+h,z0+hz],[x,y+h,z0+hz]]);
+  const topA=iso(x,y,z0+hz), topB=iso(x+w,y+h,z0+hz);
+  const grad=ctx.createLinearGradient(topA[0],topA[1],topB[0],topB[1]);
+  grad.addColorStop(0,shade(c,12)); grad.addColorStop(1,c);
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle='rgba(225,240,255,.11)'; ctx.lineWidth=.55; ctx.stroke();
+}
+function bill(txt, x, y, z, font, color, align){
+  const s = iso(x,y,z||0);
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align||'center';
+  ctx.fillText(txt, s[0], s[1]);
+  ctx.textAlign = 'center';
+}
+
+/* ══════════════════════════ 지형 상수 (월드 좌표) ══════════════════════════ */
+const RWY   = {x1:60, x2:1220, y:80, h:38};
+const TAXI_Y = 160;
+const GATE_XS = [300, 480, 660, 840, 1020, 1200];
+const STAND_Y = 238;
+const TERM  = {x1:140, y1:285, x2:1320, y2:775};
+const LOUNGE = {y1:298, y2:392};
+const CORRIDOR_X = 1242;
+const SEC_XS = [560, 700, 840, 980, 1120];
+const SEC_Y  = 470;
+const CHK_XS = [230, 325, 420, 515, 610, 705];
+const CHK_Y  = 618;
+const DOOR   = {x1:470, x2:730};
+const CREW_ROOM = {x:176, y:412};
+const BAGGAGE = {x:742, y:798, w:310, h:72};
+const RETAIL_BAYS = [[650,690],[850,690],[1050,690]];
+
+const AIRLINES = [
+  {name:'KA', color:'#4da3ff'}, {name:'JX', color:'#ff8c42'},
+  {name:'TW', color:'#3ddc84'}, {name:'PR', color:'#c77dff'},
+  {name:'OZ', color:'#ffd166'}, {name:'BX', color:'#ff5d8f'},
+];
+const AIRCRAFT = {
+  regional: {name:'리저널', short:'RJ', scale:.78, pax:[5,9], fee:650, turn:0.78, color:'#dce7f8'},
+  standard: {name:'협동체', short:'NB', scale:1, pax:[8,14], fee:800, turn:1, color:'#eef1f7'},
+  widebody: {name:'대형기', short:'WB', scale:1.42, pax:[18,28], fee:2100, turn:1.75, color:'#edf0f5'},
+};
+/* 실기종·노선 데이터 (컨셉트: KAL123 · A320-200 · 김포(GMP) → 스카이포트(SKF)) */
+const MODELS = {
+  RJ:['E190','CRJ-900','ATR 72-600','E175'],
+  NB:['A320-200','B737-800','A321neo','A220-300','B737 MAX 8'],
+  WB:['B777-300ER','A350-900','B787-9','A330-300'],
+};
+const ORIGINS_DOM = [['김포','GMP'],['제주','CJU'],['부산','PUS'],['인천','ICN'],['대구','TAE'],['울산','USN'],['광주','KWJ'],['여수','RSU'],['청주','CJJ']];
+const ORIGINS_INTL = [['도쿄 나리타','NRT'],['오사카','KIX'],['상하이','PVG'],['홍콩','HKG'],['타이베이','TPE'],['방콕','BKK'],['싱가포르','SIN'],['하노이','HAN']];
+const HOME_IATA = 'SKF';
+/* 제2 평행활주로 (09R/27L) — 시각·주변 트래픽 전용 */
+const RWY2 = {x1:150, x2:1150, y:12, h:26};
+const rwyName = d => d===9 ? '09L' : '27R';
+const THEMES = [
+  {name:'미드나잇', grass:['#315a48','#44745b'], runway:'#252d35', taxi:'#3b4651', apron:'#59616a', stand:'#68717b', wall:'#26394b', floor:'#334252'},
+  {name:'포레스트', grass:['#294837','#3c674b'], runway:'#28302f', taxi:'#3c4844', apron:'#4a5650', stand:'#59655e', wall:'#19291f', floor:'#233229'},
+  {name:'선셋',     grass:['#56452b','#765f36'], runway:'#302b33', taxi:'#443b49', apron:'#504654', stand:'#615568', wall:'#2d2030', floor:'#382a3d'},
+  {name:'오션',     grass:['#21484a','#31696c'], runway:'#222d38', taxi:'#344657', apron:'#435463', stand:'#536779', wall:'#142238', floor:'#203147'},
+  {name:'모노',     grass:['#374144','#515d60'], runway:'#252b30', taxi:'#343c42', apron:'#414950', stand:'#505960', wall:'#1d2227', floor:'#282e34'},
+];
+const TH = ()=>THEMES[S.theme]||THEMES[0];
+
+/* ══════════════════════════ 프로덕션 아트 자산 ══════════════════════════ */
+const ART = {atlas:new Image(), plane:new Image(), vehicles:new Image(), world:new Image(), retail:new Image(), tiles:{}, patterns:{}, atlasReady:false, planeReady:false, vehiclesReady:false, worldReady:false, retailReady:false};
+ART.atlas.onload = ()=>{
+  const sw = Math.floor(ART.atlas.naturalWidth/2), sh = Math.floor(ART.atlas.naturalHeight/2);
+  const defs = {grass:[0,0], runway:[1,0], apron:[0,1], terminal:[1,1]};
+  for(const [key,[cx,cy]] of Object.entries(defs)){
+    const tile = document.createElement('canvas'); tile.width=256; tile.height=256;
+    const tc = tile.getContext('2d');
+    tc.drawImage(ART.atlas,cx*sw,cy*sh,sw,sh,0,0,256,256);
+    ART.tiles[key]=tile; ART.patterns[key]=ctx.createPattern(tile,'repeat');
+  }
+  ART.atlasReady=true;
+};
+ART.plane.onload = ()=>{ ART.planeReady=true; };
+ART.vehicles.onload = ()=>{ ART.vehiclesReady=true; };
+ART.world.onload = ()=>{ ART.worldReady=true; };
+ART.retail.onload = ()=>{ ART.retailReady=true; };
+ART.atlas.src='assets/airport-material-atlas.png';
+ART.plane.src='assets/aircraft-sprite.png';
+ART.vehicles.src='assets/service-vehicles.png';
+ART.world.src='assets/airport-world-base.png';
+ART.retail.src='assets/terminal-retail-sheet.png';
+function materialFill(key, fallback, alpha=1){
+  ctx.save(); ctx.globalAlpha=alpha;
+  ctx.fillStyle = ART.patterns[key] || fallback;
+  ctx.fill(); ctx.restore();
+}
+function flatMaterial(x,y,w,h,key,fallback,alpha=1){
+  isoPath([[x,y],[x+w,y],[x+w,y+h],[x,y+h]]);
+  materialFill(key,fallback,alpha);
+}
+
+const DECOR = {
+  cafe:  {em:'☕', name:'카페',      cost:1500, income:95,  cap:3, visit:4.6, sprite:0, eff:'음료·휴식 · 만족 +0.5'},
+  snack: {em:'🍔', name:'식당',      cost:1800, income:125, cap:4, visit:5.2, sprite:1, eff:'식사 · 만족 +0.6'},
+  duty:  {em:'🛍️', name:'면세점',    cost:3000, income:260, cap:2, visit:6.5, sprite:2, eff:'면세 쇼핑 · 만족 +0.8'},
+  kids:  {em:'🎠', name:'키즈존',    cost:2000, income:35,  cap:5, visit:5.8, eff:'체험 · 만족 +0.7'},
+  bench: {em:'🪑', name:'벤치',      cost:300,  income:0,  eff:'매일 평판 회복'},
+  plant: {em:'🪴', name:'화분',      cost:200,  income:0,  eff:'매일 평판 회복'},
+  info:  {em:'ℹ️', name:'안내데스크', cost:800,  income:0,  eff:'매일 평판 회복'},
+  art:   {em:'🗿', name:'조형물',    cost:2500, income:0,  eff:'매일 평판 회복 大'},
+};
+function nearestRetailBay(x,y){
+  let best=null, bd=115;
+  for(const bay of RETAIL_BAYS){
+    const d=dist(x,y,bay[0],bay[1]);
+    if(d<bd){ bd=d; best=bay; }
+  }
+  return best;
+}
+function normalizeRetailDecor(){
+  const used=new Set();
+  for(const d of S.decor){
+    if(!DECOR[d.t]?.cap) continue;
+    let bay=nearestRetailBay(d.x,d.y);
+    if(!bay || used.has(RETAIL_BAYS.indexOf(bay))){ bay=RETAIL_BAYS.find(b=>!used.has(RETAIL_BAYS.indexOf(b))); }
+    if(!bay) continue;
+    d.x=bay[0]; d.y=bay[1]; used.add(RETAIL_BAYS.indexOf(bay));
+  }
+}
+
+/* ══════════════════════════ 게임 상태 ══════════════════════════ */
+const SAVE_KEY = 'skyportSaveV2';
+let S = {
+  money: 15000, rep: 50, day: 1, dayMin: 8*60,
+  speed: 1, sound: true, name:'스카이포트', theme: 0, runwayDir:9,
+  autoLand:false, autoTO:false,
+  up: {counters:1, security:1, gates:2, ground:0, amenity:0, rapid:0, tower:0, crewLounge:0, staffRoom:0, checkinTech:0, securityTech:0, baggage:0, passengerCare:0},
+  decor: [],
+  sat: {passenger:62, visitor:62, pilot:62, crew:62, staff:62},
+  totFlights: 0, totPax: 0, otpOn: 0, otpTot: 0,
+  streak: 0, goalClaimedDay: 0,
+};
+(function load(){
+  try{
+    let d = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if(!d) d = JSON.parse(localStorage.getItem('skyportSaveV1'));
+    if(d && typeof d.money==='number'){
+      Object.assign(S, d);
+      S.up = Object.assign({counters:1,security:1,gates:2,ground:0,amenity:0,rapid:0,tower:0,crewLounge:0,staffRoom:0,checkinTech:0,securityTech:0,baggage:0,passengerCare:0}, d.up||{});
+      S.sat = Object.assign({passenger:62,visitor:62,pilot:62,crew:62,staff:62}, d.sat||{});
+      if(d.sat && Number.isFinite(d.sat.pax) && !Object.prototype.hasOwnProperty.call(d.sat,'passenger')) S.sat.passenger=d.sat.pax;
+      S.runwayDir = d.runwayDir===27 ? 27 : 9;
+      S.decor = Array.isArray(d.decor) ? d.decor : [];
+      normalizeRetailDecor();
+      S.streak = Number.isFinite(d.streak) ? d.streak : 0;
+      S.goalClaimedDay = Number.isFinite(d.goalClaimedDay) ? d.goalClaimedDay : 0;
+      S.speed = 1;
+    }
+  }catch(e){}
+})();
+function save(){
+  localStorage.setItem(SAVE_KEY, JSON.stringify({
+    money:S.money, rep:S.rep, day:S.day, dayMin:S.dayMin, name:S.name, theme:S.theme, runwayDir:S.runwayDir,
+    autoLand:S.autoLand, autoTO:S.autoTO,
+    up:S.up, decor:S.decor, sat:S.sat, totFlights:S.totFlights, totPax:S.totPax,
+    otpOn:S.otpOn, otpTot:S.otpTot, sound:S.sound, streak:S.streak,
+    goalClaimedDay:S.goalClaimedDay
+  }));
+}
+
+let planes = [], pax = [], bags = [], particles = [], walkers = [], staff = [], carts = [];
+let vehicles = [], puffs = [];
+/* ── 제2 활주로(09R/27L) 주변 트래픽 + 화물 계류 항공기 — 시각 연출 전용 ── */
+let ambient = [], ambientT = 9;
+const AMBIENT_PARKED = [
+  {code:'CGO88', kind:'normal', type:AIRCRAFT.widebody, color:'#93a2b3', x:1400, y:372, hdg:Math.PI*0.72, alt:0, speed:0, state:'parked', gate:null},
+];
+function spawnAmbient(){
+  const takeoff = Math.random() < 0.45;
+  const type = choice([AIRCRAFT.standard, AIRCRAFT.standard, AIRCRAFT.widebody, AIRCRAFT.regional]);
+  const al = choice(AIRLINES);
+  const a = {
+    code: al.name+randi(100,899), kind:'normal', type, color:al.color,
+    y:RWY2.y, gate:null, state: takeoff?'ambTO':'ambLand',
+    alt: takeoff?0:1, sign: S.runwayDir===9?1:-1,
+    speed: takeoff?0:approachSpd()*.9,
+  };
+  a.hdg = a.sign===1 ? 0 : Math.PI;
+  a.x = takeoff ? (a.sign===1 ? RWY2.x1+40 : RWY2.x2-40) : (a.sign===1 ? -130 : 1410);
+  ambient.push(a);
+}
+function updateAmbient(dt){
+  ambientT -= dt;
+  if(ambientT<=0){ ambientT = rand(32,72); if(ambient.length<3) spawnAmbient(); }
+  for(const a of ambient){
+    if(a.state==='ambLand'){
+      a.x += a.sign*a.speed*dt;
+      const prog = a.sign===1 ? a.x-RWY2.x1 : RWY2.x2-a.x;
+      if(prog>-70) a.alt = Math.max(0, a.alt - dt*1.35);
+      if(prog>110) a.speed = Math.max(64, a.speed - 135*dt);
+      if(prog > RWY2.x2-RWY2.x1+80) a.done = true;
+    } else if(a.state==='ambTO'){
+      a.speed += 118*dt;
+      a.x += a.sign*a.speed*dt;
+      if(a.speed>225){ a.alt = Math.min(1.6, a.alt + dt*.85); a.y -= 17*a.alt*dt; }
+      if(a.x>1430 || a.x<-150) a.done = true;
+    }
+  }
+  ambient = ambient.filter(a=>!a.done);
+}
+let weather = {cur:'clear', t:0, dur:rand(80,150), wind:randi(4,14), dir:rand(0,Math.PI*2)};
+let clouds = Array.from({length:5}, ()=>({x:rand(-200,1400), y:rand(0,800), rx:rand(90,180), ry:rand(50,90), spd:rand(6,14)}));
+const HOME_CAM = {k:1.10, tx:-36, ty:-18};
+let cam = {...HOME_CAM};
+const DEPOT = {x:150, y:254};
+let gates = GATE_XS.map((x,i)=>({x, plane:null, idx:i}));
+let counters = CHK_XS.map(x=>({x, queue:[], busy:null, t:0}));
+let secLanes = SEC_XS.map(x=>({x, queue:[], busy:null, t:0}));
+let runwayUser = null;
+let spawnT = 6, flightSeq = 100, started = false;
+let event = null, eventT = rand(70,110);
+let banner = {msg:'', cls:'', until:0}, gameT = 0;
+const freshSatDelta = ()=>({passenger:0,visitor:0,pilot:0,crew:0,staff:0});
+const freshDayStats = ()=>({income:0, spent:0, flights:0, pax:0, missed:0, diverted:0, otpOn:0, otpTot:0, sat:freshSatDelta()});
+let dayStats = freshDayStats();
+let placing = null, removing = false;
+let mouse = {x:-999, y:-999, sx:-999, sy:-999, inside:false};
+let visitorT = 8;
+
+let rateLog = [];
+function earn(amt){ S.money += amt; dayStats.income += amt; rateLog.push([gameT, amt]); }
+function spend(amt){ S.money -= amt; dayStats.spent += amt; }
+function adjustSat(role, delta){
+  if(!Number.isFinite(S.sat[role])) S.sat[role]=62;
+  const before=S.sat[role];
+  S.sat[role]=clamp(before+delta,0,100);
+  if(dayStats && dayStats.sat) dayStats.sat[role]=(dayStats.sat[role]||0)+(S.sat[role]-before);
+}
+function satAverage(){ return Object.values(S.sat).reduce((n,v)=>n+v,0)/5; }
+function satTone(v){ return v>=75?'#3ddc84':v>=55?'#ffd166':v>=35?'#ff9d4d':'#ff5d5d'; }
+
+/* ── 날씨 ── */
+const WEATHERS = {
+  clear: {icon:'☀️', label:'맑음',  cloud:.04, rain:0,  next:['cloudy']},
+  cloudy:{icon:'⛅', label:'구름',  cloud:.09, rain:0,  next:['clear','rain','fog','clear']},
+  rain:  {icon:'🌧', label:'비',    cloud:.11, rain:.5, next:['cloudy','storm','cloudy']},
+  storm: {icon:'⛈', label:'폭풍',  cloud:.14, rain:1,  next:['rain']},
+  fog:   {icon:'🌫', label:'안개',  cloud:.10, rain:0,  next:['cloudy']},
+};
+const isStorm = ()=> weather.cur==='storm';
+const isFog   = ()=> weather.cur==='fog';
+const isRainy = ()=> weather.cur==='rain' || weather.cur==='storm';
+function svcFactor(){ return isStorm()?1.4 : isFog()?1.12 : weather.cur==='rain'?1.15 : 1; }
+function taxiFactor(){ return isStorm()?0.82 : isFog()?0.9 : weather.cur==='rain'?0.92 : 1; }
+function approachSpd(){ return {clear:290, cloudy:290, rain:262, storm:225, fog:205}[weather.cur]||290; }
+function recommendedRunway(){ return Math.cos(weather.dir) >= 0 ? 27 : 9; }
+function runwayMismatch(){ return weather.wind>=10 && S.runwayDir!==recommendedRunway(); }
+function runwayLabel(){ return rwyName(S.runwayDir); }
+function runwayBusy(){ return !!runwayUser || planes.some(p=>['land','lineUp','takeoff'].includes(p.state)); }
+function runwayExitX(){
+  const base = exitX();
+  return S.runwayDir===9 ? base : RWY.x1 + (RWY.x2-base);
+}
+function landingHeading(){ return S.runwayDir===9 ? 0 : Math.PI; }
+function swapRunway(){
+  if(runwayBusy()){
+    log('활주로 점유 중 — 방향 전환 대기', 'bad'); sfx('bad'); return;
+  }
+  S.runwayDir = S.runwayDir===9 ? 27 : 9;
+  log(`활주로 ${runwayLabel()} 운용 전환 — ${S.runwayDir===recommendedRunway()?'정풍 운용':'측풍·배풍 주의'}`, S.runwayDir===recommendedRunway()?'good':'ev');
+  showBanner(`활주로 ${runwayLabel()} 운용 전환`, 'info', 4);
+  sfx('click'); save();
+}
+function updateWeather(dt){
+  weather.t += dt;
+  weather.dir += dt*0.01;
+  if(weather.t >= weather.dur){
+    const prev = weather.cur;
+    weather.cur = choice(WEATHERS[weather.cur].next);
+    weather.t = 0; weather.dur = rand(80,170);
+    weather.wind = clamp(weather.wind + randi(-5,5), 2, weather.cur==='storm'?30:20);
+    if(weather.cur !== prev){
+      const w = WEATHERS[weather.cur];
+      log(`${w.icon} 기상 변화: ${w.label} (바람 ${weather.wind}kt)`, 'ev');
+      if(weather.cur==='storm'||weather.cur==='fog'){ sfx('alert'); showToast('기상 악화', `${w.label} 발생 — 접근 속도 감소, 지상 조업 지연 (바람 ${weather.wind}kt)`); }
+      if(weather.wind>=10 && S.runwayDir!==recommendedRunway()){
+        showBanner(`바람 ${weather.wind}kt — 활주로 ${rwyName(recommendedRunway())} 운용 권장`, 'storm', 7);
+      }
+    }
+  }
+}
+
+/* ══════════════════════════ 사운드 ══════════════════════════ */
+let AC = null;
+let terminalHum = null;
+const engineAudio = new Map();
+function ensureAudio(){
+  if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+  if(AC.state==='suspended') AC.resume();
+  if(!terminalHum){
+    const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
+    o.type='triangle'; o.frequency.value=52;
+    f.type='lowpass'; f.frequency.value=150;
+    g.gain.value=.006;
+    o.connect(f); f.connect(g); g.connect(AC.destination); o.start();
+    terminalHum = {o,g};
+  }
+  return AC;
+}
+function stopAmbience(){
+  for(const node of engineAudio.values()){
+    try{ node.o.stop(); }catch(e){}
+  }
+  engineAudio.clear();
+  if(terminalHum){ try{ terminalHum.o.stop(); }catch(e){} terminalHum=null; }
+}
+function updateAmbience(){
+  if(!S.sound || !AC) return;
+  const active = new Set(planes.filter(p=>p.state!=='hold').map(p=>p.id));
+  for(const p of planes){
+    if(p.state==='hold') continue;
+    let node = engineAudio.get(p.id);
+    if(!node){
+      const o=AC.createOscillator(), g=AC.createGain(), f=AC.createBiquadFilter();
+      o.type='sawtooth'; f.type='lowpass'; f.Q.value=.6; f.frequency.value=210; g.gain.value=.0001;
+      o.connect(f); f.connect(g); g.connect(AC.destination); o.start();
+      node={o,g}; engineAudio.set(p.id,node);
+    }
+    const listener = {x:650,y:390};
+    const d = Math.hypot(p.x-listener.x, p.y-listener.y) + p.alt*210;
+    const throttle = p.state==='takeoff'||p.state==='land' ? 1 : p.state==='taxiIn'||p.state==='taxiOut'||p.state==='lineUp' ? .46 : .26;
+    const gain = clamp(.046 * throttle * (1-d/1450), .0008, .042);
+    const base = p.state==='takeoff' ? 94 : p.state==='land' ? 78 : 57;
+    node.o.frequency.setTargetAtTime(base + p.speed*.09, AC.currentTime, .08);
+    node.g.gain.setTargetAtTime(gain, AC.currentTime, .12);
+  }
+  for(const [id,node] of engineAudio){
+    if(active.has(id)) continue;
+    node.g.gain.setTargetAtTime(.0001, AC.currentTime, .08);
+    try{ node.o.stop(AC.currentTime+.15); }catch(e){}
+    engineAudio.delete(id);
+  }
+}
+function sfx(type){
+  if(!S.sound) return;
+  try{
+    ensureAudio();
+    const t = AC.currentTime;
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.connect(g); g.connect(AC.destination);
+    if(type==='click'){ o.type='square'; o.frequency.value=640; g.gain.setValueAtTime(.05,t); g.gain.exponentialRampToValueAtTime(.001,t+.07); o.start(t); o.stop(t+.08); }
+    else if(type==='land'){ o.type='sawtooth'; o.frequency.setValueAtTime(360,t); o.frequency.exponentialRampToValueAtTime(140,t+.5); g.gain.setValueAtTime(.06,t); g.gain.exponentialRampToValueAtTime(.001,t+.55); o.start(t); o.stop(t+.6); }
+    else if(type==='takeoff'){ o.type='sawtooth'; o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(430,t+.7); g.gain.setValueAtTime(.055,t); g.gain.exponentialRampToValueAtTime(.001,t+.75); o.start(t); o.stop(t+.8); }
+    else if(type==='cash'){ o.type='sine'; o.frequency.setValueAtTime(880,t); o.frequency.setValueAtTime(1320,t+.09); g.gain.setValueAtTime(.07,t); g.gain.exponentialRampToValueAtTime(.001,t+.25); o.start(t); o.stop(t+.28); }
+    else if(type==='bad'){ o.type='square'; o.frequency.setValueAtTime(220,t); o.frequency.setValueAtTime(160,t+.12); g.gain.setValueAtTime(.06,t); g.gain.exponentialRampToValueAtTime(.001,t+.3); o.start(t); o.stop(t+.32); }
+    else if(type==='alert'){ o.type='triangle'; o.frequency.setValueAtTime(740,t); o.frequency.setValueAtTime(560,t+.14); o.frequency.setValueAtTime(740,t+.28); g.gain.setValueAtTime(.08,t); g.gain.exponentialRampToValueAtTime(.001,t+.45); o.start(t); o.stop(t+.5); }
+  }catch(e){}
+}
+
+/* ══════════════════════════ 로그 & 배너 & 파티클 ══════════════════════════ */
+const logEl = document.getElementById('log');
+function log(msg, cls){
+  const hh = String(Math.floor(S.dayMin/60)%24).padStart(2,'0');
+  const mm = String(Math.floor(S.dayMin%60)).padStart(2,'0');
+  const d = document.createElement('div');
+  if(cls) d.className = cls;
+  d.textContent = `${hh}:${mm} ${msg}`;
+  logEl.prepend(d);
+  while(logEl.children.length>40) logEl.lastChild.remove();
+}
+const bannerEl = document.getElementById('banner');
+function showBanner(msg, cls, dur){ banner = {msg, cls, until: gameT + dur}; }
+function updateBanner(){
+  if(isStorm()) banner = {msg:'⛈ 폭풍 — 착륙·지상 작업 지연 중', cls:'storm', until:gameT+1};
+  else if(isFog()) banner = {msg:'🌫 안개 — 시야 불량, 접근 속도 감소', cls:'storm', until:gameT+1};
+  if(banner.until > gameT && banner.msg){
+    bannerEl.style.display='block';
+    bannerEl.textContent = banner.msg;
+    bannerEl.className = banner.cls;
+  } else bannerEl.style.display='none';
+}
+function popMoney(x, y, txt, color){
+  particles.push({x, y, txt, color: color||'#3ddc84', t:0});
+}
+function updateParticles(dt){
+  for(const p of particles) p.t += dt;
+  particles = particles.filter(p=>p.t<1.2);
+}
+
+/* ══════════════════════════ 비행기 로직 ══════════════════════════ */
+const clockAbs = ()=> (S.day-1)*1440 + S.dayMin;
+function freeGate(){
+  for(let i=0;i<S.up.gates;i++) if(!gates[i].plane) return gates[i];
+  return null;
+}
+function spawnPlane(kind){
+  kind = kind||'normal';
+  const al = choice(AIRLINES);
+  const type = kind==='normal' ? choice([AIRCRAFT.regional, AIRCRAFT.standard, AIRCRAFT.standard, AIRCRAFT.widebody]) : AIRCRAFT.standard;
+  const paxDep = kind==='medical' ? 0 : randi(type.pax[0], type.pax[1]);
+  const p = {
+    id: flightSeq++, kind,
+    code: kind==='medical' ? 'MD'+randi(10,99) : kind==='vip' ? 'VP'+randi(10,99) : al.name+randi(100,899),
+    color: kind==='medical' ? '#ff5d5d' : kind==='vip' ? '#ffd166' : al.color,
+    type, state:'hold', x:-60, y:-60, hdg:0, speed:0, alt:0,
+    orbA: rand(0,Math.PI*2),
+    patience: kind==='medical' ? 55 : 100,
+    gate:null, wp:[],
+    paxArr: kind==='medical' ? randi(3,6) : randi(type.pax[0], type.pax[1]),
+    paxDep, arrLeft:0, arrT:0, boarded:0, bagsReady:0, depT:0,
+    crewAboard:false, crewIn:0,
+    touched:false, svcFuel:false, svcCater:false, tugCalled:false,
+    std: clockAbs() + 260 - S.up.ground*20 - S.up.rapid*10,
+    strip:null,
+  };
+  p.arrLeft = p.paxArr;
+  p.model = choice(MODELS[type.short] || MODELS.NB);
+  p.origin = kind==='medical' ? ['응급 이송','MED']
+           : choice(type.short==='WB' ? ORIGINS_INTL : (Math.random()<.75 ? ORIGINS_DOM : ORIGINS_INTL));
+  planes.push(p);
+  if(kind==='medical'){ log(`🚑 ${p.code}편 비상착륙 요청! 최우선 처리 필요`, 'bad'); sfx('alert'); showBanner('🚑 응급 항공기 접근 중 — 즉시 착륙 허가 필요!', 'med', 8); showToast('응급 항공기 접근', `${p.code}편 환자 이송 — 즉시 착륙 허가가 필요합니다`); }
+  else if(kind==='vip'){ log(`👑 ${p.code} VIP 전세기 접근 — 수수료 3배!`, 'ev'); sfx('alert'); showBanner('👑 VIP 전세기 접근 중 — 특별 수수료 3배', 'vip', 7); showToast('VIP 전세기 접근', `${p.code}편 — 특별 수수료 3배 · 우선 처리 권장`); }
+  else log(`${p.code}편 (${type.name}) 접근 중 — 착륙 허가 대기`, 'info');
+  buildStrip(p);
+}
+function clearLanding(p){
+  if(p.state!=='hold' || runwayUser) return;
+  const g = freeGate();
+  if(!g) return;
+  g.plane = p; p.gate = g;
+  runwayUser = p;
+  p.state='land'; p.x=S.runwayDir===9 ? -90 : 1370; p.y=RWY.y; p.hdg=landingHeading();
+  p.speed = approachSpd();
+  p.alt=1;
+  sfx('click');
+  log(`${p.code}편 착륙 허가 → ${runwayLabel()} / 게이트 ${g.idx+1}`, 'good');
+  let delay = 2;
+  for(let i=0;i<p.paxDep;i++){
+    spawnDepPax(p, delay);
+    delay += rand(1.5, 4.5);
+  }
+}
+function clearTakeoff(p){
+  if(p.state!=='holdShort' || runwayUser) return;
+  runwayUser = p;
+  p.state='lineUp'; p.wp=[[S.runwayDir===9?112:1108,RWY.y]];
+  sfx('click');
+  log(`${p.code}편 이륙 허가`, 'good');
+}
+function finishBoarding(p){
+  let missed = 0;
+  for(const q of pax){
+    if(q.kind==='dep' && q.flightId===p.id && !q.done){
+      q.flightGone = true; missed++;
+    }
+  }
+  if(missed>0){
+    S.rep = clamp(S.rep - missed*0.7, 0, 100);
+    dayStats.missed += missed;
+    adjustSat('passenger', -missed*1.5);
+    adjustSat('pilot', -1.2);
+    adjustSat('crew', -.8);
+    log(`${p.code}편 — 승객 ${missed}명 탑승 실패!`, 'bad');
+    sfx('bad');
+  }
+  p.state='readyPush';
+}
+function clearPushback(p){
+  if(p.state!=='readyPush' || p.tugCalled) return;
+  p.tugCalled = true;
+  spawnVehicle('tug', p);
+  sfx('click');
+  log(`${p.code}편 푸시백 허가 — 토잉카 이동 중`, 'good');
+}
+function exitX(){ return clamp(1090-S.up.rapid*100,650,1090); }
+function updatePlane(p, dt){
+  const taxiSpd = 75*taxiFactor() + S.up.rapid*8;
+  if(p.state==='hold'){
+    p.orbA += dt*0.9;
+    const cx = 190 + (p.id%3)*130, cy = 26;
+    p.x = cx + Math.cos(p.orbA)*26; p.y = cy + Math.sin(p.orbA)*10;
+    p.hdg = p.orbA + Math.PI/2; p.alt = 1;
+    p.patience -= dt * (p.kind==='medical' ? 1.2 : 1) * (runwayMismatch()?1.18:1);
+    if(p.patience<=0){
+      const pen = p.kind==='medical' ? 10 : p.kind==='vip' ? 6 : 4;
+      S.rep = clamp(S.rep-pen,0,100);
+      dayStats.diverted++;
+      adjustSat('pilot', -3.5);
+      adjustSat('crew', -2.2);
+      adjustSat('passenger', -1.4);
+      log(`${p.code}편 회항! 평판 -${pen}`, 'bad');
+      sfx('bad');
+      removePlane(p);
+    }
+    return;
+  }
+  if(p.state==='land'){
+    const sign = S.runwayDir===9 ? 1 : -1;
+    p.x += sign*p.speed*dt;
+    if((S.runwayDir===9 && p.x>130) || (S.runwayDir===27 && p.x<1150)) p.alt = Math.max(0, p.alt - dt*1.6);
+    if(!p.touched && p.alt<=0 && ((S.runwayDir===9 && p.x>150) || (S.runwayDir===27 && p.x<1130))){
+      p.touched = true;
+      sfx('land');
+      for(let i=0;i<7;i++) puffs.push({x:p.x-10+rand(-8,8), y:p.y+rand(-9,9), t:0, r:rand(2,5)});
+    }
+    if(p.x > 200) p.speed = Math.max(taxiSpd, p.speed - 150*dt);
+    p.hdg = lerpAng(p.hdg, landingHeading(), dt*5);
+    const ex = runwayExitX();
+    if((S.runwayDir===9 && p.x >= ex) || (S.runwayDir===27 && p.x <= ex)){
+      p.state='taxiIn'; p.alt=0;
+      p.wp = [[ex+(S.runwayDir===9?70:-70),TAXI_Y],[p.gate.x,TAXI_Y],[p.gate.x,STAND_Y]];
+      runwayUser = null;
+    }
+    return;
+  }
+  if(p.state==='taxiIn' || p.state==='taxiOut' || p.state==='lineUp'){
+    if(followWp(p, dt, taxiSpd)){
+      if(p.state==='taxiIn'){
+        p.state='deboard'; p.hdg=Math.PI/2;
+        p.arrT = 0.4 * p.type.turn;
+        if(p.kind==='medical'){
+          earn(2500); S.rep = clamp(S.rep+3,0,100);
+          adjustSat('pilot', 1.2);
+          adjustSat('staff', .8);
+          popMoney(p.x, p.y-20, '+₩2,500 🚑', '#ff8a8a');
+          log(`🚑 ${p.code}편 무사 착륙! 환자 이송 완료 +₩2,500, 평판 +3`, 'good');
+        } else {
+          const fee = p.kind==='vip' ? 2400 : p.type.fee;
+          earn(fee);
+          popMoney(p.x, p.y-20, '+₩'+fee.toLocaleString());
+          log(`${p.code}편 게이트 도착 — 하기 시작 (착륙료 +₩${fee.toLocaleString()})`, 'good');
+          adjustSat('pilot', runwayMismatch()?-.4:.45);
+        }
+        sfx('cash');
+      } else if(p.state==='taxiOut'){
+        p.state='holdShort'; p.hdg=-Math.PI/2;
+      } else {
+        p.state='takeoff'; p.speed=0; p.hdg=landingHeading();
+      }
+    }
+    return;
+  }
+  if(p.state==='deboard'){
+    p.arrT -= dt;
+    if(p.arrT<=0 && p.arrLeft>0){
+      p.arrLeft--;
+      spawnArrPax(p);
+      p.arrT = (0.45 - S.up.ground*0.08) * p.type.turn * svcFactor();
+    }
+    if(p.arrLeft<=0){
+      p.state='service'; p.depT=0;
+      spawnVehicle('fuel', p);
+      if(p.kind==='medical'){
+        p.crewAboard = true; p.svcCater = true;   // 응급기: 급유만, 승무원 대기
+      } else {
+        spawnVehicle('cater', p);
+        spawnCrewChange(p);                       // 승무원 교대: 기존 크루 하기 + 새 크루 탑승
+        log(`${p.code}편 지상 조업 개시 — 급유·케이터링·승무원 교대 (게이트 ${p.gate.idx+1})`, 'info');
+      }
+    }
+    return;
+  }
+  if(p.state==='service'){
+      if(p.svcFuel && p.svcCater){
+      const inc = Math.round((380 + p.paxDep*18) * p.type.turn);
+      earn(inc);
+      popMoney(p.x, p.y-20, '⛽ +₩'+inc.toLocaleString());
+        p.state='board'; p.depT=0;
+        adjustSat('crew', .35 + S.up.crewLounge*.08);
+        adjustSat('staff', .2 + S.up.staffRoom*.08);
+      if(p.paxDep>0) log(`${p.code}편 조업 완료 — 탑승 개시 대기`, 'info');
+    }
+    return;
+  }
+  if(p.state==='board'){
+    p.depT += dt;
+    const maxWait = (115 - S.up.ground*15) * p.type.turn;
+    // 승무원 탑승 전에는 제한시간이 지나도 푸시백 단계로 넘기지 않음.
+    // 기존에는 이 분기 때문에 승무원이 아직 게이트에 도착하지 않은 항공기도 출발 가능했음.
+    const boardingReady = p.boarded >= p.paxDep && p.bagsReady >= p.paxDep;
+    if(p.crewAboard && (boardingReady || p.depT > maxWait)){
+      finishBoarding(p);
+    }
+    return;
+  }
+  if(p.state==='readyPush'){ return; }
+  if(p.state==='pushback'){
+    p.y -= 24*dt;
+    if(p.y <= TAXI_Y){ p.y = TAXI_Y; p.state='pushTurn'; }
+    return;
+  }
+  if(p.state==='pushTurn'){
+    p.hdg = lerpAng(p.hdg, Math.PI, dt*1.8);
+    const dh = Math.abs(((p.hdg - Math.PI) % (Math.PI*2) + Math.PI*3) % (Math.PI*2) - Math.PI);
+    if(dh < 0.06){
+      p.hdg = Math.PI;
+      if(p.gate){ p.gate.plane = null; p.gate = null; }
+      const tug = vehicles.find(v=>v.type==='tug' && v.plane===p);
+      if(tug){ tug.state='return'; tug.wp=[[clamp(tug.x,160,1160), 254],[DEPOT.x, DEPOT.y]]; }
+      p.state='taxiOut';
+      p.wp = S.runwayDir===9 ? [[168,TAXI_Y],[150,138]] : [[1152,TAXI_Y],[1150,138]];
+    }
+    return;
+  }
+  if(p.state==='holdShort'){ p.hdg = lerpAng(p.hdg, -Math.PI/2, dt*4); return; }
+  if(p.state==='takeoff'){
+    const sign = S.runwayDir===9 ? 1 : -1;
+    p.speed += 130*dt;
+    p.x += sign*p.speed*dt;
+    if(p.speed>235){ p.alt = Math.min(1.4, p.alt + dt*0.9); p.y -= 26*p.alt*dt; }
+    if((S.runwayDir===9 && p.x > 1340) || (S.runwayDir===27 && p.x < -60)){
+      let income = Math.round((500 + p.paxDep*30 + S.up.amenity*100) * p.type.turn * (.9+satAverage()/500));
+      if(p.kind==='vip') income *= 3;
+      earn(income);
+      const delay = clockAbs() - p.std;
+      S.otpTot++; dayStats.otpTot++;
+      if(delay <= 0){
+        S.otpOn++; dayStats.otpOn++; S.streak++;
+        adjustSat('pilot', 1.1);
+        adjustSat('crew', .65);
+        adjustSat('passenger', .35);
+        if(S.streak>=3){
+          const streakBonus = Math.min(1000, S.streak*100);
+          earn(streakBonus);
+          log(`정시 ${S.streak}편 연속 운항 보너스 +₩${streakBonus.toLocaleString()}`, 'good');
+        }
+      } else {
+        S.streak = 0;
+        if(delay > 60) log(`${p.code}편 지연 출발 (+${Math.round(delay)}분)`, 'ev');
+        adjustSat('pilot', delay>60?-1.5:-.4);
+        adjustSat('crew', delay>60?-1:-.25);
+        adjustSat('passenger', delay>60?-1.1:-.25);
+      }
+      S.rep = clamp(S.rep + (delay<=0 ? (p.kind==='vip'?2:1.4) : delay>120 ? -0.4 : 0.5), 0, 100);
+      S.totFlights++; dayStats.flights++;
+      runwayUser = null;
+      log(`${p.code}편 이륙 완료! +₩${income.toLocaleString()}`, 'good');
+      sfx('cash');
+      removePlane(p);
+    }
+    return;
+  }
+}
+function followWp(p, dt, spd){
+  if(!p.wp.length) return true;
+  const [tx,ty] = p.wp[0];
+  const d = dist(p.x,p.y,tx,ty);
+  const ang = Math.atan2(ty-p.y, tx-p.x);
+  p.hdg = lerpAng(p.hdg, ang, Math.min(1, dt*5));
+  const step = spd*dt;
+  if(d <= step+1){ p.x=tx; p.y=ty; p.wp.shift(); return p.wp.length===0; }
+  p.x += Math.cos(ang)*step; p.y += Math.sin(ang)*step;
+  return false;
+}
+function removePlane(p){
+  if(p.gate){ p.gate.plane=null; }
+  if(runwayUser===p) runwayUser=null;
+  if(p.strip){ p.strip.root.remove(); }
+  planes = planes.filter(q=>q!==p);
+}
+
+/* ══════════════════════════ 승객 ══════════════════════════ */
+const SHIRT = ['#5b8dd9','#d95b7f','#5bd98f','#d9c25b','#9b5bd9','#5bcfd9','#d97b5b','#7a86a8'];
+const PANTS = ['#33415e','#4a3b30','#2e3a2e','#3a3550','#2c2c34'];
+const HAIRC = ['#2b2118','#4a3521','#141414','#5a4632','#77655a','#8a8a8a'];
+const SKINC = ['#f2c288','#e8b07a','#d99c66','#c98a55'];
+const BAGC  = ['#c0503a','#3a6ec0','#3aa06a','#8a5ac0','#c0a03a'];
+function personLook(){
+  return {shirt:choice(SHIRT), pants:choice(PANTS), hair:choice(HAIRC), skin:choice(SKINC), bag:choice(BAGC), seed:rand(0,9)};
+}
+function spawnDepPax(plane, delay){
+  pax.push(Object.assign({
+    kind:'dep', flightId:plane.id, gateIdx:plane.gate.idx,
+    x:rand(DOOR.x1,DOOR.x2), y:782, state:'wait', waitT:delay,
+    wp:[], q:null, svcT:0, patience:55, angry:false,
+    seat:null, done:false, flightGone:false, shopped:false, shopTarget:null,
+    phase:rand(0,9), _moved:false, luggage:true,
+  }, personLook()));
+}
+function spawnArrPax(plane){
+  const gx = plane.gate.x;
+  pax.push(Object.assign({
+    kind:'arr',
+    x:gx+rand(-8,8), y:300, state:'walk',
+    wp:[[gx+rand(-10,10), rand(402,428)],[CORRIDOR_X+rand(-14,14), rand(402,428)],
+        [CORRIDOR_X+rand(-14,14), 720],[CORRIDOR_X+8,756],[TERM.x2+22,756]],
+    done:false, phase:rand(0,9), _moved:false, luggage:true,
+  }, personLook()));
+}
+function shortestQueue(list, maxN){
+  let best=null, bl=1e9;
+  for(let i=0;i<maxN;i++){
+    const load = list[i].queue.length + (list[i].busy?1:0);
+    if(load<bl){ bl=load; best=list[i]; }
+  }
+  return best;
+}
+function qPos(st, isChk){
+  const idx = st.q.queue.indexOf(st);
+  const baseY = isChk ? CHK_Y+30 : SEC_Y+34;
+  return [st.q.x + ((idx%2)?5:-5)*0.6, baseY + idx*15];
+}
+function retailUsage(d){
+  return pax.filter(q=>q.shopRef===d && q.state==='shopping').length
+       + walkers.filter(w=>w.shopRef===d && w.dir==='retailVisit').length;
+}
+function retailQueue(d){
+  return pax.filter(q=>q.shopRef===d && ['toShop','retailQueue','shopping'].includes(q.state)).length
+       + walkers.filter(w=>w.shopRef===d && ['toRetail','retailQueue','retailVisit'].includes(w.dir)).length;
+}
+function chooseRetail(x, y, maxD){
+  const candidates=[];
+  for(const d of S.decor){
+    const it=DECOR[d.t];
+    if(!it || !it.cap) continue;
+    const dd=dist(x,y,d.x,d.y);
+    if(dd<=maxD) candidates.push({d,score:dd + retailQueue(d)*34 + Math.random()*55});
+  }
+  candidates.sort((a,b)=>a.score-b.score);
+  return candidates[0]?.d||null;
+}
+function retailPoint(d){ return [d.x, d.y+68]; }
+function decorClearance(d){
+  const it=DECOR[d.t];
+  if(it?.cap) return d.t==='duty'?54:d.t==='snack'?49:44;
+  return d.t==='kids'?28:d.t==='art'?22:d.t==='bench'?18:d.t==='info'?18:14;
+}
+function movePedestrian(o, tx, ty, step){
+  const d=dist(o.x,o.y,tx,ty);
+  if(d<=step) return [tx,ty,true];
+  let nx=o.x+(tx-o.x)/d*step, ny=o.y+(ty-o.y)/d*step;
+  for(const decor of S.decor){
+    const clearance=decorClearance(decor)+7;
+    const dd=dist(nx,ny,decor.x,decor.y);
+    if(dd>=clearance) continue;
+    let dx=nx-decor.x, dy=ny-decor.y;
+    if(Math.abs(dx)+Math.abs(dy)<.01){ dx=ty-o.y; dy=-(tx-o.x); }
+    const len=Math.hypot(dx,dy)||1;
+    nx=decor.x+dx/len*clearance;
+    ny=decor.y+dy/len*clearance;
+  }
+  // 터미널 벽 통과 방지. 지정된 게이트 탑승·지상조업·출입구 경로만 예외 허용
+  const eastExit=o.kind==='arr' && tx>TERM.x2 && ty>=735;
+  const crewGateBoarding = o.dir==='in' && o.plane?.gate
+    && Math.abs(tx-o.plane.gate.x)<28 && ty<=LOUNGE.y1+8;
+  const passengerGateBoarding = o.kind==='dep' && o.state==='toBoard'
+    && Number.isInteger(o.gateIdx) && Math.abs(tx-GATE_XS[o.gateIdx])<28
+    && ty<=LOUNGE.y1+8;
+  const groundAirside = o.role==='ground' && ty<TERM.y1+12;
+  const southExit = (o.role==='visitor' || (o.kind==='dep' && o.state==='exitAngry'))
+    && tx>=DOOR.x1 && tx<=DOOR.x2 && ty>TERM.y2;
+  if(o.y<TERM.y2-10 && !eastExit && !southExit && !crewGateBoarding && !passengerGateBoarding && !groundAirside){
+    nx=clamp(nx,TERM.x1+12,TERM.x2-12);
+    ny=clamp(ny,TERM.y1+12,TERM.y2-12);
+  }
+  return [nx,ny,false];
+}
+function spawnBag(q){
+  const lane = (q.gateIdx%4)*62;
+  bags.push({
+    flightId:q.flightId, gateIdx:q.gateIdx, x:q.x, y:CHK_Y+6, phase:'drop',
+    wp:[[BAGGAGE.x+30+lane, BAGGAGE.y+20],[BAGGAGE.x+260, BAGGAGE.y+20],
+        [BAGGAGE.x+260, BAGGAGE.y+52],[GATE_XS[q.gateIdx]-22, 270]],
+    bag:q.bag, done:false,
+  });
+}
+function updateBag(b, dt){
+  if(!b.wp.length){
+    const pl = planes.find(p=>p.id===b.flightId);
+    if(pl && pl.gate && pl.state!=='takeoff'){ pl.bagsReady++; }
+    b.done=true;
+    return;
+  }
+  const [tx,ty] = b.wp[0];
+  const d = dist(b.x,b.y,tx,ty), step = 82*(1+S.up.baggage*.24)*dt;
+  if(d<=step){ b.x=tx; b.y=ty; b.wp.shift(); }
+  else { b.x += (tx-b.x)/d*step; b.y += (ty-b.y)/d*step; }
+}
+function updatePax(q, dt){
+  const spd = 46;
+  q._moved = false;
+  const walk=(tx,ty)=>{
+    const d = dist(q.x,q.y,tx,ty);
+    const step = spd*dt;
+    if(d>0.5) q._moved = true;
+    const [nx,ny,reached]=movePedestrian(q,tx,ty,step);
+    q.x=nx; q.y=ny;
+    return reached;
+  };
+  const followPath=()=>{
+    if(!q.wp.length) return true;
+    if(walk(q.wp[0][0], q.wp[0][1])) q.wp.shift();
+    return q.wp.length===0;
+  };
+
+  if(q.kind==='arr'){
+    if(followPath()){
+      if(S.up.amenity>0){ earn(S.up.amenity*6); }
+      S.totPax++; dayStats.pax++;
+      adjustSat('passenger', .08 + S.up.passengerCare*.03);
+      q.done=true;
+    }
+    if(q._moved) q.phase += dt*4;
+    return;
+  }
+
+  if(q.flightGone && q.state!=='exitAngry' && !q.done){
+    if(q.q){ const i=q.q.queue.indexOf(q); if(i>=0) q.q.queue.splice(i,1); if(q.q.busy===q) q.q.busy=null; q.q=null; }
+    q.state='exitAngry'; q.angry=true;
+    q.wp=[[CORRIDOR_X, clamp(q.y,340,720)],[DOOR.x2-20,720],[DOOR.x2-20,TERM.y2+22]];
+    return;
+  }
+
+  switch(q.state){
+    case 'wait':
+      q.waitT -= dt;
+      if(q.waitT<=0){
+        q.state='inChkQ';
+        q.q = shortestQueue(counters, S.up.counters);
+        q.q.queue.push(q);
+      }
+      break;
+    case 'inChkQ': {
+      const [tx,ty] = qPos(q, true);
+      walk(tx,ty);
+      const first = q.q.queue[0]===q && !q.q.busy;
+      if(first && Math.abs(q.y-(CHK_Y+30))<6){
+        q.q.queue.shift(); q.q.busy=q; q.q.t = 3.2*(1-S.up.checkinTech*.12);
+        q.state='chkSvc';
+      }
+      tickPatience(q, dt);
+      break;
+    }
+    case 'chkSvc':
+      walk(q.q.x, CHK_Y+16);
+      q.q.t -= dt;
+      if(q.q.t<=0){
+        q.q.busy=null; q.q=null;
+        earn(60 + S.up.amenity*15);
+        q.luggage = false;
+        spawnBag(q);                            // 지하 분류장으로 이동
+        q.state='toSec';
+        q.q = shortestQueue(secLanes, S.up.security);
+        q.q.queue.push(q);
+        q.wp = [[q.x, 560],[q.q.x+rand(-6,6), 545]];
+      }
+      break;
+    case 'toSec':
+      if(followPath()) q.state='inSecQ';
+      tickPatience(q, dt);
+      break;
+    case 'inSecQ': {
+      const [tx,ty] = qPos(q, false);
+      walk(tx,ty);
+      const first = q.q.queue[0]===q && !q.q.busy;
+      if(first && Math.abs(q.y-(SEC_Y+34))<6){
+        q.q.queue.shift(); q.q.busy=q; q.q.t = 3.6*(1-S.up.securityTech*.12);
+        q.state='secSvc';
+      }
+      tickPatience(q, dt);
+      break;
+    }
+    case 'secSvc':
+      walk(q.q.x, SEC_Y+6);
+      q.q.t -= dt;
+      if(q.q.t<=0){
+        q.q.busy=null; q.q=null;
+        q.state='toLounge';
+        const gx = GATE_XS[q.gateIdx];
+        q.seat = [gx+rand(-78,78), rand(LOUNGE.y1+18, LOUNGE.y2-12)];
+        q.wp = [[q.x, 428],[gx+rand(-20,20), 415], q.seat.slice()];
+      }
+      break;
+    case 'toLounge':
+      if(followPath()){
+        if(!q.shopped){
+          q.shopped = true;
+          const shop = chooseRetail(q.seat[0], q.seat[1], 250);
+          if(shop && Math.random()<0.72){
+            q.shopRef = shop;
+            q.shopTarget = {x:shop.x, y:shop.y+68};
+            q.state='toShop';
+            q.wp=[[shop.x+rand(-5,5), shop.y+68]];
+            break;
+          }
+        }
+        q.state='lounge';
+      }
+      break;
+    case 'toShop':
+      if(followPath()) q.state='retailQueue';
+      break;
+    case 'retailQueue': {
+      const it=DECOR[q.shopRef?.t];
+      if(!it){ q.state='toSeat'; q.wp=[q.seat.slice()]; break; }
+      if(retailUsage(q.shopRef)<it.cap){ q.state='shopping'; q.svcT=it.visit; }
+      else tickPatience(q,dt*.35);
+      break;
+    }
+    case 'shopping':
+      q.svcT -= dt;
+      if(q.svcT<=0){
+        const it=DECOR[q.shopRef?.t];
+        const sale=Math.round((it?.income||0)*(1+S.up.amenity*.05));
+        earn(sale);
+        q.shopRef.sales=(q.shopRef.sales||0)+sale;
+        q.shopRef.customers=(q.shopRef.customers||0)+1;
+        if(q.shopRef.customers<=3 || q.shopRef.customers%5===0) log(`${it.name} 이용객 결제 +₩${sale}`, 'good');
+        popMoney(q.shopTarget.x, q.shopTarget.y-22, '+₩'+sale);
+        S.rep = clamp(S.rep+0.08, 0, 100);
+        adjustSat('passenger', (q.shopRef?.t==='duty' ? .8 : .45) + S.up.passengerCare*.04);
+        q.state='toSeat';
+        q.wp=[q.seat.slice()];
+      }
+      break;
+    case 'toSeat':
+      if(followPath()) q.state='lounge';
+      break;
+    case 'lounge': {
+      const pl = gates[q.gateIdx].plane;
+      if(pl && pl.id===q.flightId && pl.state==='board' && pl.crewAboard){
+        q.state='toBoard';
+        q.wp=[[GATE_XS[q.gateIdx]+rand(-6,6), LOUNGE.y1+6],[GATE_XS[q.gateIdx], 290]];
+      }
+      break;
+    }
+    case 'toBoard':
+      if(followPath()){
+        const pl = gates[q.gateIdx].plane;
+        if(pl) pl.boarded++;
+        S.totPax++; dayStats.pax++;
+        adjustSat('passenger', .12);
+        q.done=true;
+      }
+      break;
+    case 'exitAngry':
+      if(followPath()) q.done=true;
+      break;
+  }
+  if(q._moved) q.phase += dt*4;
+}
+function tickPatience(q, dt){
+  q.patience -= dt;
+  if(q.patience<=0 && !q.angry){
+    q.angry = true;
+    S.rep = clamp(S.rep-1, 0, 100);
+    adjustSat('passenger', -2.2);
+    sfx('bad');
+  }
+}
+
+/* ══════════════════════════ 승무원 & 워커 ══════════════════════════ */
+function spawnCrewChange(plane){
+  const gx = plane.gate.x;
+  // 도착 크루: 비행기 → 크루룸
+  for(let i=0;i<SEC_XS.length;i++){
+    walkers.push(Object.assign({
+      role: i===0?'pilot':'crew', dir:'out', plane:null,
+      x:gx+rand(-5,5), y:295+i*4,
+      wp:[[gx+rand(-8,8), 414+rand(-6,6)],[CREW_ROOM.x+30, CREW_ROOM.y+rand(-6,6)],[CREW_ROOM.x, CREW_ROOM.y]],
+      phase:rand(0,9), _moved:false, delay:i*1.1,
+    }, personLook()));
+  }
+  // 새 크루: 크루룸 → 비행기
+  for(let i=0;i<3;i++){
+    walkers.push(Object.assign({
+      role: i===0?'pilot':'crew', dir:'in', plane,
+      x:CREW_ROOM.x, y:CREW_ROOM.y,
+      wp:[[CREW_ROOM.x+30, CREW_ROOM.y+rand(-6,6)],[gx+rand(-8,8), 414+rand(-6,6)],[gx, LOUNGE.y1+6],[gx, 290]],
+      phase:rand(0,9), _moved:false, delay:1.5+i*1.2,
+    }, personLook()));
+  }
+}
+function spawnVisitor(){
+  const look = personLook();
+  const pts = [];
+  const n = randi(1,2);
+  for(let i=0;i<n;i++) pts.push([rand(230,1020), rand(555,715)]);
+  walkers.push(Object.assign({
+    role:'visitor', dir:'wander',
+    x:rand(DOOR.x1,DOOR.x2), y:782,
+    wp:[pts[0]], plan:pts.slice(1), waitT:0, visits:n,
+    phase:rand(0,9), _moved:false, delay:0,
+  }, look));
+}
+function updateWalker(w, dt){
+  w._moved = false;
+  if(w.delay>0){ w.delay -= dt; return; }
+  const spd = 44;
+  const walk=()=>{
+    if(!w.wp.length) return true;
+    const [tx,ty] = w.wp[0];
+    const d = dist(w.x,w.y,tx,ty);
+    const step = spd*dt;
+    if(d>0.5) w._moved = true;
+    const [nx,ny,reached]=movePedestrian(w,tx,ty,step);
+    w.x=nx; w.y=ny;
+    if(reached) w.wp.shift();
+    return w.wp.length===0;
+  };
+  if(w.dir==='in'){
+    // 탑승하러 가는 크루 — 비행기가 사라지면 복귀
+    if(!w.plane || !planes.includes(w.plane) || !w.plane.gate){
+      w.dir='out'; w.plane=null;
+      w.wp=[[w.x, 414],[CREW_ROOM.x+30, CREW_ROOM.y],[CREW_ROOM.x, CREW_ROOM.y]];
+      return;
+    }
+    if(walk()){
+      w.plane.crewIn++;
+      if(w.plane.crewIn>=3 && !w.plane.crewAboard){
+        w.plane.crewAboard = true;
+        adjustSat('crew', .18 + S.up.crewLounge*.06);
+        log(`${w.plane.code}편 승무원 탑승 완료 — 보딩 개시`, 'info');
+      }
+      w.done = true;
+    }
+  } else if(w.dir==='out'){
+    if(walk()) w.done = true;
+  } else if(w.dir==='toRetail'){
+    if(walk()) w.dir='retailQueue';
+  } else if(w.dir==='retailQueue'){
+    const it=DECOR[w.shopRef?.t];
+    if(!it){ w.dir='wander'; return; }
+    if(retailUsage(w.shopRef)<it.cap){ w.dir='retailVisit'; w.waitT=it.visit; }
+  } else if(w.dir==='retailVisit'){
+    w.waitT -= dt;
+    if(w.waitT<=0){
+      const it=DECOR[w.shopRef?.t];
+      const sale=Math.round((it?.income||0)*(1+S.up.amenity*.05));
+      earn(sale);
+      w.shopRef.sales=(w.shopRef.sales||0)+sale;
+      w.shopRef.customers=(w.shopRef.customers||0)+1;
+      if(w.shopRef.customers<=3 || w.shopRef.customers%5===0) log(`${it.name} 방문객 결제 +₩${sale}`, 'good');
+      popMoney(w.x,w.y-18,'+₩'+sale);
+      adjustSat('visitor',(w.shopRef.t==='duty' ? .9 : .5)+S.up.passengerCare*.04);
+      w.shopped=true; w.dir='wander'; w.waitT=0;
+      if(w.plan && w.plan.length) w.wp=[w.plan.shift()];
+      else { w.leaving=true; w.wp=[[rand(DOOR.x1,DOOR.x2),782]]; }
+    }
+  } else { // visitor
+    if(w.waitT>0){ w.waitT -= dt; if(w._moved) {} return; }
+    if(walk()){
+      if(!w.shopped){
+        const shop=chooseRetail(w.x,w.y,310);
+        if(shop && Math.random()<.78){ w.shopRef=shop; w.dir='toRetail'; w.wp=[retailPoint(shop)]; return; }
+      }
+      if(w.plan && w.plan.length){ w.wp=[w.plan.shift()]; w.waitT=rand(3,7); }
+      else if(!w.leaving){ w.leaving=true; w.waitT=rand(2,5); w.wp=[[rand(DOOR.x1,DOOR.x2), 782]]; }
+      else { adjustSat('visitor', .16 + S.up.passengerCare*.04); w.done = true; }
+    }
+  }
+  if(w._moved) w.phase += dt*4;
+}
+
+/* ══════════════════════════ 공항 직원 ══════════════════════════ */
+function syncStaff(){
+  const want = [];
+  for(let i=0;i<S.up.counters;i++) want.push({id:'chk'+i, role:'checkin', post:[CHK_XS[i], CHK_Y-16]});
+  for(let i=0;i<S.up.security;i++) want.push({id:'sec'+i, role:'sec', post:[SEC_XS[i]-30, SEC_Y+10]});
+  for(let i=0;i<S.up.gates;i++)    want.push({id:'gate'+i, role:'gate', post:[GATE_XS[i]-26, LOUNGE.y1+14], gate:i});
+  for(let i=0;i<S.up.gates;i++)    want.push({id:'gnd'+i, role:'ground', post:[GATE_XS[i]-44, 258], gate:i});
+  want.push({id:'jan0', role:'janitor', post:[620, 690]});
+  if(S.up.amenity>=2) want.push({id:'jan1', role:'janitor', post:[380, 500]});
+  S.decor.forEach((d,i)=>{ if(d.t==='info') want.push({id:'info'+i, role:'info', post:[d.x, d.y-14]}); });
+  // 동기화
+  for(const w of want){
+    if(!staff.find(s=>s.id===w.id)){
+      staff.push(Object.assign({
+        id:w.id, role:w.role, gate:w.gate,
+        x:w.post[0], y:w.post[1], post:w.post, tx:w.post[0], ty:w.post[1],
+        timer:rand(2,8), phase:rand(0,9), _moved:false, armsUp:false,
+      }, personLook()));
+    } else {
+      const s = staff.find(s=>s.id===w.id);
+      s.post = w.post;
+    }
+  }
+  staff = staff.filter(s=>want.find(w=>w.id===s.id));
+}
+function updateStaff(s, dt){
+  s._moved = false;
+  s.armsUp = false;
+  let tx = s.post[0], ty = s.post[1];
+  if(s.role==='gate'){
+    const pl = gates[s.gate].plane;
+    if(pl && pl.state==='board'){ tx = GATE_XS[s.gate]+16; ty = LOUNGE.y1+8; }
+  }
+  if(s.role==='ground'){
+    const pl = gates[s.gate].plane;
+    if(pl && ['deboard','service','board'].includes(pl.state)){ tx = GATE_XS[s.gate]-18; ty = 252; }
+    else if(pl && pl.state==='taxiIn'){ tx = GATE_XS[s.gate]; ty = 214; s.armsUp = true; } // 마샬러
+  }
+  if(s.role==='sec'){
+    s.timer -= dt;
+    if(s.timer<=0){ s.timer = rand(5,11); s.patrol = !s.patrol; }
+    if(s.patrol) tx = s.post[0]+52;
+  }
+  if(s.role==='janitor'){
+    s.timer -= dt;
+    if(s.timer<=0){
+      s.timer = rand(7,13);
+      s.wander = [rand(230,1020), rand(552,715)];
+    }
+    if(s.wander){ tx=s.wander[0]; ty=s.wander[1]; }
+  }
+  const d = dist(s.x,s.y,tx,ty);
+  if(d>1.5){
+    const step = 40*dt;
+    const [nx,ny]=movePedestrian(s,tx,ty,step);
+    s.x=nx; s.y=ny;
+    s._moved = true;
+    s.phase += dt*4;
+  }
+}
+function syncCarts(){
+  for(let i=0;i<S.up.gates;i++){
+    if(!carts.find(c=>c.gate===i)) carts.push({gate:i, x:GATE_XS[i]-62, y:268, dir:1, active:false});
+  }
+  carts = carts.filter(c=>c.gate<S.up.gates);
+}
+function updateCart(c, dt){
+  const pl = gates[c.gate].plane;
+  c.active = !!(pl && ['deboard','service','board'].includes(pl.state));
+  const gx = GATE_XS[c.gate];
+  if(c.active){
+    c.x += c.dir * 34 * dt;
+    if(c.x > gx+55){ c.dir=-1; }
+    if(c.x < gx-62){ c.dir=1; }
+  } else {
+    const tx = gx-62;
+    if(Math.abs(c.x-tx)>2) c.x += Math.sign(tx-c.x)*34*dt;
+  }
+}
+
+/* ══════════════════════════ 지상 차량 ══════════════════════════ */
+function spawnVehicle(type, plane){
+  const gx = plane.gate.x;
+  const target = type==='fuel' ? [gx+36, 246] : type==='cater' ? [gx-38, 246] : [gx, 272];
+  vehicles.push({
+    type, plane, x:DEPOT.x, y:DEPOT.y, state:'go',
+    wp:[[gx + (type==='fuel'?36:type==='cater'?-38:0), 254], target],
+    workT: type==='fuel' ? 15*plane.type.turn*svcFactor() : type==='cater' ? 18*plane.type.turn*svcFactor() : 0,
+  });
+}
+function updateVehicle(v, dt){
+  const alive = v.plane && planes.includes(v.plane);
+  if(v.state==='go' && !alive){ v.state='return'; v.wp=[[v.x,254],[DEPOT.x,DEPOT.y]]; }
+  const drive=()=>{
+    if(!v.wp.length) return true;
+    const [tx,ty]=v.wp[0];
+    const d = dist(v.x,v.y,tx,ty), step = 62*dt;
+    if(d<=step){ v.x=tx; v.y=ty; v.wp.shift(); }
+    else { v.x += (tx-v.x)/d*step; v.y += (ty-v.y)/d*step; }
+    return v.wp.length===0;
+  };
+  if(v.state==='go'){
+    if(drive()){
+      if(v.type==='tug'){
+        if(alive && v.plane.state==='readyPush'){ v.state='attach'; v.plane.state='pushback'; }
+        else { v.state='return'; v.wp=[[v.x,254],[DEPOT.x,DEPOT.y]]; }
+      } else v.state='work';
+    }
+  } else if(v.state==='work'){
+    if(!alive){ v.state='return'; v.wp=[[v.x,254],[DEPOT.x,DEPOT.y]]; return; }
+    v.workT -= dt;
+    if(v.workT<=0){
+      if(v.type==='fuel') v.plane.svcFuel = true;
+      else v.plane.svcCater = true;
+      v.state='return'; v.wp=[[v.x,254],[DEPOT.x,DEPOT.y]];
+    }
+  } else if(v.state==='attach'){
+    if(!alive){ v.state='return'; v.wp=[[v.x,254],[DEPOT.x,DEPOT.y]]; return; }
+    // 기수를 밀며 후진 (기수 = 남쪽, plane.y + 30)
+    v.x = v.plane.x; v.y = v.plane.y + 30;
+  } else if(v.state==='return'){
+    if(drive()) v.done = true;
+  }
+}
+
+/* ══════════════════════════ 이벤트 ══════════════════════════ */
+function startEvent(){
+  const r = Math.random();
+  const svc = planes.find(p=>p.state==='service' && (!p.svcFuel || !p.svcCater));
+  if(r<0.45 || (r>=0.8 && !svc)) spawnPlane('medical');
+  else if(r<0.8) spawnPlane('vip');
+  else {
+    for(const v of vehicles) if(v.plane===svc && v.state==='work') v.workT += 8;
+    showToast('지상 조업 지연', `급유 트럭 서비스 지연 — ${svc.code}편 (게이트 ${svc.gate ? svc.gate.idx+1 : '-'})`);
+    log(`⚠ ${svc.code}편 지상 조업 지연 발생`, 'ev');
+    sfx('alert');
+  }
+  eventT = rand(110, 200);
+}
+function updateEvents(dt){
+  gameT += dt;
+  eventT -= dt;
+  if(eventT<=0 && started) startEvent();
+}
+
+/* ══════════════════════════ 월드 업데이트 ══════════════════════════ */
+function spawnInterval(){
+  let v = clamp(48 - S.day*1.5 - (S.rep-50)*0.25, 16, 60);
+  if(isStorm()) v *= 1.35;
+  else if(isFog()) v *= 1.25;
+  else if(weather.cur==='rain') v *= 1.1;
+  return v;
+}
+function ambienceCount(){
+  return S.decor.reduce((n,d)=>{
+    if(d.t==='art') return n+3;
+    return n + (DECOR[d.t] && DECOR[d.t].income===0 ? 1 : 0) + (d.t==='kids'?1:0);
+  }, 0);
+}
+function updateWorld(dt){
+  S.dayMin += dt*2.4;
+  if(S.dayMin>=1440){
+    S.dayMin -= 1440;
+    endOfDay();
+  }
+  spawnT -= dt;
+  const holding = planes.filter(p=>p.state==='hold').length;
+  if(spawnT<=0 && holding<4 && planes.length<9){
+    spawnPlane();
+    spawnT = spawnInterval() * rand(0.8,1.2);
+  }
+  visitorT -= dt;
+  if(visitorT<=0){
+    visitorT = rand(16,30);
+    if(walkers.filter(w=>w.role==='visitor').length < 6) spawnVisitor();
+  }
+  updateEvents(dt);
+  updateAmbient(dt);
+  for(const p of planes.slice()) updatePlane(p, dt);
+  for(const q of pax) updatePax(q, dt);
+  pax = pax.filter(q=>!q.done);
+  for(const b of bags) updateBag(b, dt);
+  bags = bags.filter(b=>!b.done);
+  for(const w of walkers) updateWalker(w, dt);
+  walkers = walkers.filter(w=>!w.done);
+  syncStaff(); syncCarts();
+  for(const s of staff) updateStaff(s, dt);
+  for(const c of carts) updateCart(c, dt);
+  if(S.up.tower>=1 && S.autoLand && !runwayUser){
+    const h = planes.find(p=>p.state==='hold');
+    if(h && freeGate()) clearLanding(h);
+  }
+  if(S.up.tower>=2 && S.autoTO){
+    const rp = planes.find(p=>p.state==='readyPush' && !p.tugCalled);
+    if(rp) clearPushback(rp);
+    if(!runwayUser){
+      const h = planes.find(p=>p.state==='holdShort');
+      if(h) clearTakeoff(h);
+    }
+  }
+  updateWeather(dt);
+  if(S.up.tower>=3 && !runwayBusy() && weather.wind>=10 && S.runwayDir!==recommendedRunway()){
+    S.runwayDir=recommendedRunway();
+    log(`관제 자동화 — 활주로 ${runwayLabel()} 정풍 운용 전환`, 'good');
+  }
+  for(const v of vehicles) updateVehicle(v, dt);
+  vehicles = vehicles.filter(v=>!v.done);
+  for(const pf of puffs) pf.t += dt;
+  puffs = puffs.filter(pf=>pf.t<1.6);
+  for(const cl of clouds){
+    cl.x += (cl.spd + weather.wind*0.4) * dt;
+    if(cl.x - cl.rx > 1500){ cl.x = -200 - cl.rx; cl.y = rand(0,800); }
+  }
+  updateParticles(dt);
+  updateAmbience();
+}
+function endOfDay(){
+  const amb = Math.min(3, ambienceCount()*0.15) + S.up.amenity*0.4;
+  const queueLoad = counters.reduce((n,c)=>n+c.queue.length+(c.busy?1:0),0)
+                  + secLanes.reduce((n,c)=>n+c.queue.length+(c.busy?1:0),0);
+  const staffStress = Math.max(0, queueLoad - (S.up.counters+S.up.security)*2)*.28 + Math.max(0, planes.length-S.up.gates)*.2;
+  adjustSat('passenger', S.up.passengerCare*.55 + S.up.amenity*.18 + amb*.08);
+  adjustSat('visitor', S.up.passengerCare*.42 + ambienceCount()*.07);
+  adjustSat('crew', S.up.crewLounge*.65 + S.up.ground*.12 - staffStress*.12);
+  adjustSat('pilot', S.up.crewLounge*.35 + S.up.tower*.12);
+  adjustSat('staff', S.up.staffRoom*.72 + S.up.ground*.15 - staffStress);
+  const satRep = (satAverage()-50)*.035;
+  S.rep = clamp(S.rep + amb + satRep, 0, 100);
+  // 운영비: 인건비 + 시설 유지비
+  const wages = staff.length * 120;
+  const maint = (S.up.counters + S.up.security + S.up.gates) * 90
+              + S.up.rapid*150 + S.up.tower*200 + S.up.ground*100
+              + (S.up.checkinTech+S.up.securityTech+S.up.baggage+S.up.passengerCare)*65
+              + (S.up.crewLounge+S.up.staffRoom)*80 + S.decor.length*15;
+  spend(wages + maint);
+  const st = dayStats;
+  const net = st.income - st.spent;
+  const otp = st.otpTot > 0 ? Math.round(st.otpOn/st.otpTot*100) : null;
+  document.getElementById('repTitle').textContent = `${S.day}일차`;
+  document.getElementById('reportBody').innerHTML = `
+    <div class="rrow"><span>✈ 운항 완료</span><b>${st.flights}편</b></div>
+    <div class="rrow"><span>🧳 처리 승객</span><b>${st.pax}명</b></div>
+    <div class="rrow"><span>💰 총 수입</span><b style="color:var(--green)">+₩${st.income.toLocaleString()}</b></div>
+    <div class="rrow"><span>🏗 총 지출</span><b style="color:var(--red)">-₩${st.spent.toLocaleString()}</b></div>
+    <div class="rrow"><span>📈 순이익</span><b style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}₩${net.toLocaleString()}</b></div>
+    <div class="rrow"><span>👥 인건비 (직원 ${staff.length}명)</span><b style="color:var(--red)">-₩${wages.toLocaleString()}</b></div>
+    <div class="rrow"><span>🔧 시설 유지비</span><b style="color:var(--red)">-₩${maint.toLocaleString()}</b></div>
+    <div class="rrow"><span>⏱ 정시 출발률</span><b>${otp===null?'—':otp+'%'}</b></div>
+    <div class="rrow"><span>😡 탑승 실패 / 회항</span><b>${st.missed}명 / ${st.diverted}편</b></div>
+    <div class="rrow"><span>만족도 평균</span><b style="color:${satTone(satAverage())}">${Math.round(satAverage())}</b></div>
+    <div class="rrow"><span>만족도 변동</span><b>이용객 ${st.sat.passenger>=0?'+':''}${st.sat.passenger.toFixed(1)} · 승무원 ${st.sat.crew>=0?'+':''}${st.sat.crew.toFixed(1)} · 직원 ${st.sat.staff>=0?'+':''}${st.sat.staff.toFixed(1)}</b></div>
+    <div class="rrow"><span>만족도 평판 보정</span><b style="color:${satTone(satAverage())}">${satRep>=0?'+':''}${satRep.toFixed(1)}</b></div>
+    <div class="rrow"><span>🌟 시설 평판 보너스</span><b style="color:var(--gold)">+${amb.toFixed(1)}</b></div>`;
+  dayStats = freshDayStats();
+  S.day++;
+  log(`── ${S.day}일차 시작 ──`, 'info');
+  save();
+  prevSpeed = S.speed || 1;
+  S.speed = 0;
+  document.getElementById('report').classList.remove('hidden');
+  sfx('alert');
+}
+let prevSpeed = 1;
+document.getElementById('reportClose').onclick = ()=>{
+  document.getElementById('report').classList.add('hidden');
+  S.speed = prevSpeed;
+  syncSpeedBtns();
+  sfx('click');
+};
+
+/* ══════════════════════════ 렌더링 : 사람 ══════════════════════════ */
+const ROLE_STYLE = {
+  checkin:{shirt:'#4d7dd9', pants:'#2c3a55', hat:null},
+  sec:    {shirt:'#31415e', pants:'#222c40', hat:'cap',    hatC:'#26334d'},
+  gate:   {shirt:'#7a5ad9', pants:'#33305e', hat:null},
+  ground: {shirt:'#c96f1e', pants:'#3a3a3a', hat:'helmet', hatC:'#e6c33a', vest:'#ffd166'},
+  janitor:{shirt:'#3f7d4f', pants:'#2e2e2e', hat:'cap',    hatC:'#2e5c3a'},
+  info:   {shirt:'#d95b7f', pants:'#3a2c40', hat:null},
+  pilot:  {shirt:'#eef1f7', pants:'#1d2434', hat:'pilot',  hatC:'#1d2434'},
+  crew:   {shirt:'#d94f6e', pants:'#8c2f45', hat:'crew',   hatC:'#a83a54'},
+};
+function drawPerson(px, py, o){
+  const [sx, sy] = iso(px, py);
+  // 그림자
+  ctx.fillStyle='rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.ellipse(sx, sy, 5.5, 2.4, 0, 0, 7); ctx.fill();
+  const bob = o.moving ? Math.sin(o.phase*3.1)*1.1 : Math.sin(gameT*2+(o.seed||0))*0.4;
+  const y0 = sy - bob;
+  // 다리
+  ctx.fillStyle = o.pants||'#333c50';
+  if(o.moving){
+    const sw = Math.sin(o.phase*3.1)*1.8;
+    ctx.fillRect(sx-2.8, y0-6.5+Math.max(0,sw*0.4), 2.4, 6.5-Math.max(0,sw*0.4));
+    ctx.fillRect(sx+0.5, y0-6.5+Math.max(0,-sw*0.4), 2.4, 6.5-Math.max(0,-sw*0.4));
+  } else {
+    ctx.fillRect(sx-2.8, y0-6.5, 2.4, 6.5);
+    ctx.fillRect(sx+0.5, y0-6.5, 2.4, 6.5);
+  }
+  // 몸통
+  ctx.fillStyle = o.shirt;
+  ctx.beginPath();
+  ctx.roundRect(sx-4.2, y0-15, 8.4, 9.5, 2.5);
+  ctx.fill();
+  // 조끼
+  if(o.vest){
+    ctx.fillStyle = o.vest;
+    ctx.fillRect(sx-4.2, y0-14.4, 2.2, 8);
+    ctx.fillRect(sx+2, y0-14.4, 2.2, 8);
+  }
+  // 팔 들기(마샬러)
+  if(o.armsUp){
+    ctx.strokeStyle = o.shirt; ctx.lineWidth=2.2;
+    ctx.beginPath();
+    ctx.moveTo(sx-4, y0-13); ctx.lineTo(sx-8, y0-20);
+    ctx.moveTo(sx+4, y0-13); ctx.lineTo(sx+8, y0-20);
+    ctx.stroke();
+    ctx.fillStyle='#ff8c1a';
+    ctx.beginPath(); ctx.arc(sx-8.5, y0-21, 1.8, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx+8.5, y0-21, 1.8, 0, 7); ctx.fill();
+  }
+  // 머리
+  ctx.fillStyle = o.skin||'#f2c288';
+  ctx.beginPath(); ctx.arc(sx, y0-18.5, 3.6, 0, 7); ctx.fill();
+  // 머리카락/모자
+  if(o.hat==='cap'){
+    ctx.fillStyle = o.hatC||'#26334d';
+    ctx.beginPath(); ctx.arc(sx, y0-19.5, 3.6, Math.PI, 0); ctx.fill();
+    ctx.fillRect(sx-4.2, y0-19.8, 8.4, 1.6);
+  } else if(o.hat==='pilot'){
+    ctx.fillStyle='#f5f7fb';
+    ctx.beginPath(); ctx.arc(sx, y0-19.6, 3.7, Math.PI, 0); ctx.fill();
+    ctx.fillStyle=o.hatC||'#1d2434';
+    ctx.fillRect(sx-4, y0-19.6, 8, 1.5);
+  } else if(o.hat==='crew'){
+    ctx.fillStyle=o.hatC||'#a83a54';
+    ctx.fillRect(sx-3.4, y0-22.4, 6.8, 2.6);
+  } else if(o.hat==='helmet'){
+    ctx.fillStyle=o.hatC||'#e6c33a';
+    ctx.beginPath(); ctx.arc(sx, y0-19.3, 4, Math.PI, 0); ctx.fill();
+  } else {
+    ctx.fillStyle = o.hair||'#2b2118';
+    ctx.beginPath(); ctx.arc(sx, y0-19.4, 3.6, Math.PI*0.95, Math.PI*2.05); ctx.fill();
+  }
+  // 캐리어
+  if(o.luggage){
+    ctx.fillStyle = o.bag||'#c0503a';
+    ctx.fillRect(sx+5, y0-7, 4, 6);
+    ctx.strokeStyle = shade(o.bag||'#c0503a', -40); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(sx+7, y0-7); ctx.lineTo(sx+7, y0-11); ctx.stroke();
+  }
+  if(o.shopping){
+    ctx.font='9px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('🛒', sx+8, y0-14);
+  }
+  if(o.angry){
+    ctx.fillStyle='#ff5d5d'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('!', sx, y0-26);
+    ctx.strokeStyle='rgba(255,93,93,.7)'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.arc(sx, y0-12, 9, 0, 7); ctx.stroke();
+  }
+}
+
+/* ══════════════════════════ 렌더링 : 비행기 ══════════════════════════ */
+const FUSE = [[25,0],[21,-3.6],[-19,-3.6],[-25,-1.6],[-25,1.6],[-19,3.6],[21,3.6]];
+const WINGL = [[7,-2],[-3,-20],[-9,-20],[-2,-2]];
+const WINGR = WINGL.map(p=>[p[0],-p[1]]);
+const HTL = [[-16,-1.5],[-21,-9],[-24,-9],[-19,-1.5]];
+const HTR = HTL.map(p=>[p[0],-p[1]]);
+function planePoly(p, local, z){
+  const c = Math.cos(p.hdg), s = Math.sin(p.hdg);
+  const sca = p.type?.scale||1;
+  ctx.beginPath();
+  local.forEach((pt,i)=>{
+    const wx = p.x + pt[0]*sca*c - pt[1]*sca*s;
+    const wy = p.y + pt[0]*sca*s + pt[1]*sca*c;
+    const sc = iso(wx, wy, z);
+    i ? ctx.lineTo(sc[0],sc[1]) : ctx.moveTo(sc[0],sc[1]);
+  });
+  ctx.closePath();
+}
+function drawPlaneSprite(p){
+  const z = 5 + p.alt*95, scale = p.type?.scale||1;
+  const sp=iso(p.x,p.y,z), sh=iso(p.x,p.y,0);
+  const ahead=iso(p.x+Math.cos(p.hdg)*10,p.y+Math.sin(p.hdg)*10,z);
+  const ang=Math.atan2(ahead[1]-sp[1],ahead[0]-sp[0]);
+  const w=96*scale, h=66*scale;
+  // 지면 그림자와 고도 분리감
+  ctx.save(); ctx.translate(sh[0]+4,sh[1]+6); ctx.rotate(ang);
+  ctx.fillStyle=`rgba(0,5,12,${clamp(.36-p.alt*.15,.12,.36)})`;
+  ctx.filter=`blur(${2+p.alt*3}px)`;
+  ctx.beginPath(); ctx.ellipse(0,0,w*.35,h*.22,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+  // 항공기 프로덕션 스프라이트
+  ctx.save(); ctx.translate(sp[0],sp[1]); ctx.rotate(ang);
+  ctx.filter='drop-shadow(0px 3px 3px rgba(0,8,16,.48))';
+  ctx.drawImage(ART.plane,-w/2,-h/2,w,h);
+  ctx.filter='none';
+  // 항공사 식별 도장
+  ctx.globalCompositeOperation='source-atop';
+  ctx.fillStyle=p.kind==='medical'?'#ef4a56':p.kind==='vip'?'#d7b85d':p.color;
+  ctx.globalAlpha=.85;
+  ctx.fillRect(-w*.39,-h*.045,w*.16,h*.09);
+  ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+  if(p.kind==='medical'){
+    ctx.fillStyle='#e53945'; ctx.fillRect(-w*.05,-3,w*.18,6); ctx.fillRect(w*.015,-9,6,18);
+  } else if(p.kind==='vip'){
+    const vip=ctx.createLinearGradient(-w*.16,0,w*.22,0); vip.addColorStop(0,'rgba(215,184,93,0)'); vip.addColorStop(.5,'#d7b85d'); vip.addColorStop(1,'rgba(215,184,93,0)');
+    ctx.fillStyle=vip; ctx.fillRect(-w*.12,-2,w*.36,4);
+  }
+  if(Math.floor(gameT*2.2)%2===0 && p.state!=='hold'){
+    ctx.shadowBlur=8; ctx.shadowColor='#ff4141'; ctx.fillStyle='#ff5d5d';
+    ctx.beginPath(); ctx.arc(0,0,1.8,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+  }
+  ctx.restore();
+  // 야간 착륙등
+  if(nightAmount()>.2 && (p.state==='land'||p.state==='takeoff')){
+    ctx.save(); ctx.translate(sp[0],sp[1]); ctx.rotate(ang);
+    const beam=ctx.createLinearGradient(w*.28,0,w*1.3,0);
+    beam.addColorStop(0,'rgba(255,250,220,.28)'); beam.addColorStop(1,'rgba(255,250,220,0)');
+    ctx.fillStyle=beam; ctx.beginPath(); ctx.moveTo(w*.28,-5); ctx.lineTo(w*1.3,-22); ctx.lineTo(w*1.3,22); ctx.lineTo(w*.28,5); ctx.fill(); ctx.restore();
+  }
+  if(p.alt<=.01 || p.state==='hold'){
+    const label=(p.kind==='medical'?'긴급 · ':p.kind==='vip'?'VIP · ':'')+p.code+(p.kind==='normal'?` · ${p.type.short}`:'');
+    ctx.font='700 10px sans-serif'; const tw=ctx.measureText(label).width+14;
+    ctx.fillStyle='rgba(5,13,22,.82)'; ctx.beginPath(); ctx.roundRect(sp[0]-tw/2,sp[1]+h*.28,tw,17,4); ctx.fill();
+    ctx.strokeStyle='rgba(123,174,220,.34)'; ctx.stroke();
+    ctx.fillStyle=p.kind==='medical'?'#ffb3b3':p.kind==='vip'?'#ffd166':'#f4f8ff'; ctx.textAlign='center';
+    ctx.fillText(label,sp[0],sp[1]+h*.28+12);
+  }
+}
+function drawVehicleSprite(v){
+  const typeIndex={fuel:0,cater:1,tug:2}[v.type]||0;
+  let heading=0;
+  if(v.state==='attach' && v.plane) heading=v.plane.hdg;
+  else if(v.wp && v.wp.length) heading=Math.atan2(v.wp[0][1]-v.y,v.wp[0][0]-v.x);
+  const sp=iso(v.x,v.y,v.type==='cater'?8:5);
+  const ahead=iso(v.x+Math.cos(heading)*10,v.y+Math.sin(heading)*10,5);
+  const ang=Math.atan2(ahead[1]-sp[1],ahead[0]-sp[0]);
+  const cellW=ART.vehicles.naturalWidth/3;
+  const targetW=v.type==='tug'?46:64, targetH=v.type==='tug'?42:52;
+  ctx.save(); ctx.translate(sp[0],sp[1]); ctx.rotate(ang);
+  ctx.fillStyle='rgba(0,5,12,.32)'; ctx.filter='blur(1.2px)';
+  ctx.beginPath(); ctx.ellipse(2,5,targetW*.3,targetH*.12,0,0,Math.PI*2); ctx.fill();
+  ctx.filter='drop-shadow(0px 2px 2px rgba(0,8,16,.45))';
+  ctx.drawImage(ART.vehicles,typeIndex*cellW,120,cellW,620,-targetW/2,-targetH/2,targetW,targetH);
+  ctx.filter='none';
+  if(v.state!=='idle' && Math.floor(gameT*3)%2===0){
+    ctx.shadowBlur=7; ctx.shadowColor='#ffb020'; ctx.fillStyle='#ffc247';
+    ctx.beginPath(); ctx.arc(0,-4,1.7,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawPlaneIso(p){
+  if(ART.planeReady){ drawPlaneSprite(p); return; }
+  const z = 5 + p.alt*95;
+  const sca = p.type?.scale||1;
+  // 그림자
+  ctx.fillStyle = `rgba(0,0,0,${0.3 - p.alt*0.13})`;
+  planePoly(p, FUSE, 0); ctx.fill();
+  planePoly(p, WINGL, 0); ctx.fill();
+  planePoly(p, WINGR, 0); ctx.fill();
+  // 날개
+  const wing = p.kind==='vip' ? '#d9cba8' : '#c9cfdb';
+  ctx.fillStyle = wing;
+  planePoly(p, WINGL, z-1); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=.7; ctx.stroke();
+  planePoly(p, WINGR, z-1); ctx.fill(); ctx.stroke();
+  planePoly(p, HTL, z); ctx.fill();
+  planePoly(p, HTR, z); ctx.fill();
+  // 엔진 나셀
+  ctx.fillStyle='#7a828f';
+  planePoly(p, [[6,-12.5],[6,-8.5],[-4,-8.5],[-4,-12.5]], z-2.5); ctx.fill();
+  planePoly(p, [[6,8.5],[6,12.5],[-4,12.5],[-4,8.5]], z-2.5); ctx.fill();
+  ctx.fillStyle='#2c3340';
+  planePoly(p, [[6,-12],[6,-9],[4,-9],[4,-12]], z-2.4); ctx.fill();
+  planePoly(p, [[6,9],[6,12],[4,12],[4,9]], z-2.4); ctx.fill();
+  // 윙렛
+  ctx.fillStyle = p.color;
+  planePoly(p, [[-3,-20],[-6,-20],[-7,-19],[-4,-19]], z+2); ctx.fill();
+  planePoly(p, [[-3,20],[-6,20],[-7,19],[-4,19]], z+2); ctx.fill();
+  // 동체
+  ctx.fillStyle = p.kind==='vip' ? '#f3e9cf' : '#eef1f7';
+  planePoly(p, FUSE, z+2); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.28)'; ctx.lineWidth=.8; ctx.stroke();
+  // 수직 꼬리날개 (세로 면)
+  const c = Math.cos(p.hdg), s = Math.sin(p.hdg);
+  const pt = (lx,ly,zz)=>{ const wx=p.x+lx*sca*c-ly*sca*s, wy=p.y+lx*sca*s+ly*sca*c; return iso(wx,wy,zz); };
+  const a = pt(-17,0,z+2), b = pt(-25,0,z+2), b2 = pt(-27,0,z+16), a2 = pt(-22,0,z+17);
+  ctx.beginPath();
+  ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.lineTo(b2[0],b2[1]); ctx.lineTo(a2[0],a2[1]);
+  ctx.closePath();
+  ctx.fillStyle = p.color; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.stroke();
+  // 조종석
+  const nose = pt(19,0,z+3);
+  ctx.fillStyle='#33415e';
+  ctx.beginPath(); ctx.ellipse(nose[0],nose[1],3,1.8,0,0,7); ctx.fill();
+  // 충돌방지등(비콘) — 붉게 점멸
+  if(Math.floor(gameT*2.2)%2===0 && p.state!=='hold'){
+    const bc = pt(-2,0,z+7);
+    ctx.fillStyle='#ff3b3b';
+    ctx.beginPath(); ctx.arc(bc[0], bc[1], 1.7, 0, 7); ctx.fill();
+  }
+  // 야간 착륙등 (접근/이륙 활주 중)
+  if(nightAmount()>0.25 && (p.state==='land'||p.state==='takeoff') ){
+    const n0 = pt(24,0,2), n1 = pt(95,-16,0), n2 = pt(95,16,0);
+    const gr = ctx.createLinearGradient(n0[0],n0[1],(n1[0]+n2[0])/2,(n1[1]+n2[1])/2);
+    gr.addColorStop(0,'rgba(255,250,220,.34)');
+    gr.addColorStop(1,'rgba(255,250,220,0)');
+    ctx.fillStyle=gr;
+    ctx.beginPath(); ctx.moveTo(n0[0],n0[1]); ctx.lineTo(n1[0],n1[1]); ctx.lineTo(n2[0],n2[1]);
+    ctx.closePath(); ctx.fill();
+  }
+  // 응급기 적십자
+  if(p.kind==='medical'){
+    ctx.fillStyle='#ff5d5d';
+    planePoly(p, [[3,-1.4],[3,1.4],[-8,1.4],[-8,-1.4]], z+2.6); ctx.fill();
+    planePoly(p, [[-1,-4],[-1,4],[-4,4],[-4,-4]], z+2.6); ctx.fill();
+  }
+  // 라벨
+  if(p.alt<=0.01 || p.state==='hold'){
+    const label = (p.kind==='medical'?'🚑':p.kind==='vip'?'👑':'') + p.code + (p.kind==='normal' ? ` · ${p.type.short}` : '');
+    const sp = iso(p.x, p.y, z);
+    ctx.font='bold 10px sans-serif';
+    const tw = ctx.measureText(label).width+10;
+    ctx.fillStyle='rgba(8,12,20,.68)';
+    ctx.fillRect(sp[0]-tw/2, sp[1]+16, tw, 14);
+    ctx.fillStyle = p.kind==='medical' ? '#ffb3b3' : p.kind==='vip' ? '#ffd166' : '#fff';
+    ctx.textAlign='center';
+    ctx.fillText(label, sp[0], sp[1]+27);
+  }
+}
+
+/* ══════════════════════════ 렌더링 : 월드 ══════════════════════════ */
+function nightAmount(){
+  const h = S.dayMin/60;
+  if(h>=7 && h<=18) return 0;
+  if(h<5 || h>=21) return 1;
+  if(h<7) return (7-h)/2;
+  return (h-18)/3;
+}
+function strokeIso(pts, width, color, dash){
+  ctx.strokeStyle=color; ctx.lineWidth=width;
+  if(dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  for(let i=0;i<pts.length;i++){
+    const s = iso(pts[i][0],pts[i][1],0);
+    i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+/* ══════════════ 실제 국제공항 확장 요소 — 절차적 렌더 ══════════════ */
+const CAR_COLORS=['#c8cdd4','#8f99a4','#3d4854','#7a2f2f','#2f4d7a','#40632f','#b0a26a','#5a5f66'];
+function glowDot(wx,wy,z,r,color,blur){
+  const s=iso(wx,wy,z||0);
+  ctx.shadowBlur=blur||8; ctx.shadowColor=color;
+  ctx.fillStyle=color;
+  ctx.beginPath(); ctx.arc(s[0],s[1],r,0,7); ctx.fill();
+  ctx.shadowBlur=0;
+}
+function fuelTank(wx,wy,r,h,color){
+  const b=iso(wx,wy,0), t=iso(wx,wy,h);
+  ctx.fillStyle=shade(color,-34);
+  ctx.beginPath(); ctx.ellipse(b[0],b[1],r,r*.46,0,0,7); ctx.fill();
+  ctx.fillStyle=color; ctx.fillRect(t[0]-r,t[1],r*2,b[1]-t[1]);
+  const gr=ctx.createLinearGradient(t[0]-r,0,t[0]+r,0);
+  gr.addColorStop(0,'rgba(255,255,255,.22)'); gr.addColorStop(.5,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,.32)');
+  ctx.fillStyle=gr; ctx.fillRect(t[0]-r,t[1],r*2,b[1]-t[1]);
+  ctx.fillStyle='#b33'; ctx.fillRect(t[0]-r,t[1]+(b[1]-t[1])*.42,r*2,2);
+  ctx.fillStyle=shade(color,16);
+  ctx.beginPath(); ctx.ellipse(t[0],t[1],r,r*.46,0,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(8,14,20,.45)'; ctx.lineWidth=1; ctx.stroke();
+}
+function drawRealAirport(){
+  const glow = Math.max(nightAmount(),.22);
+  /* ── 제2 평행활주로 09R/27L ── */
+  flat(RWY2.x1-46, RWY2.y-RWY2.h/2-10, RWY2.x2-RWY2.x1+92, RWY2.h+20, 'rgba(43,62,50,.5)');
+  flatMaterial(RWY2.x1, RWY2.y-RWY2.h/2, RWY2.x2-RWY2.x1, RWY2.h, 'runway', '#272e35', .97);
+  flat(RWY2.x1, RWY2.y-RWY2.h/2, RWY2.x2-RWY2.x1, RWY2.h, 'rgba(10,15,20,.28)');
+  strokeIso([[RWY2.x1+4,RWY2.y-RWY2.h/2+2],[RWY2.x2-4,RWY2.y-RWY2.h/2+2]],1.4,'rgba(235,235,235,.55)');
+  strokeIso([[RWY2.x1+4,RWY2.y+RWY2.h/2-2],[RWY2.x2-4,RWY2.y+RWY2.h/2-2]],1.4,'rgba(235,235,235,.55)');
+  strokeIso([[RWY2.x1+52,RWY2.y],[RWY2.x2-52,RWY2.y]],1.8,'#dfe3e6',[18,15]);
+  for(const end of [0,1]){
+    const d = end===0 ? 1 : -1;
+    const x0 = end===0 ? RWY2.x1 : RWY2.x2;
+    for(let i=0;i<6;i++) flat(x0+(end?-32:8), RWY2.y-11+i*3.9, 24, 1.9, '#e2e2e2');
+    for(const tOff of [122,158,194]){
+      flat(x0+d*tOff-9, RWY2.y-9.5, 18, 2.5, 'rgba(228,228,228,.8)');
+      flat(x0+d*tOff-9, RWY2.y+7,   18, 2.5, 'rgba(228,228,228,.8)');
+    }
+    flat(x0+d*88-13, RWY2.y-8,  26, 3.6, '#eaeaea');
+    flat(x0+d*88-13, RWY2.y+4.5,26, 3.6, '#eaeaea');
+  }
+  bill('09R', RWY2.x1+56, RWY2.y+3, 0, 'bold 12px sans-serif', '#e8e8e8');
+  bill('27L', RWY2.x2-56, RWY2.y+3, 0, 'bold 12px sans-serif', '#e8e8e8');
+  for(let i=0;i<7;i++)
+    flat(RWY2.x1+128+(i*47)%150, RWY2.y-7+(i*5)%13, 20+(i%3)*8, 1.8, 'rgba(8,8,10,.3)');
+  for(let x=RWY2.x1+16;x<RWY2.x2;x+=46){
+    glowDot(x, RWY2.y-RWY2.h/2-3, 0, 1.4, `rgba(255,255,255,${glow*.85})`, 7*glow);
+    glowDot(x, RWY2.y+RWY2.h/2+3, 0, 1.4, `rgba(255,214,120,${glow*.85})`, 7*glow);
+  }
+  for(let i=0;i<5;i++){
+    glowDot(RWY2.x1-5, RWY2.y-10+i*5, 0, 1.5, `rgba(80,255,140,${glow})`, 8*glow);
+    glowDot(RWY2.x2+5, RWY2.y-10+i*5, 0, 1.5, `rgba(80,255,140,${glow})`, 8*glow);
+    glowDot(RWY2.x1+7, RWY2.y-10+i*5, 0, 1.2, `rgba(255,84,84,${glow*.8})`, 6*glow);
+    glowDot(RWY2.x2-7, RWY2.y-10+i*5, 0, 1.2, `rgba(255,84,84,${glow*.8})`, 6*glow);
+  }
+  /* ── 활주로 간 연결 유도로 + 정지선 ── */
+  for(const cx of [210, 640, 1088]){
+    strokeIso([[cx,RWY2.y+RWY2.h/2],[cx,RWY.y-RWY.h/2]], 13, '#39434c');
+    strokeIso([[cx,RWY2.y+RWY2.h/2],[cx,RWY.y-RWY.h/2]], 1.3, '#e0be3c');
+    strokeIso([[cx-9,RWY.y-RWY.h/2-8],[cx+9,RWY.y-RWY.h/2-8]], 2.4, '#ffd94f', [3,2]);
+  }
+  /* ── 접근등(ALS)·시퀀스 스트로브·PAPI — 4개 문턱 ── */
+  const strobeIdx = Math.floor(gameT*9)%6;
+  const alsEnds = [
+    {x:RWY.x1,  y:RWY.y,  dir:-1, half:RWY.h/2},  {x:RWY.x2,  y:RWY.y,  dir:1, half:RWY.h/2},
+    {x:RWY2.x1, y:RWY2.y, dir:-1, half:RWY2.h/2}, {x:RWY2.x2, y:RWY2.y, dir:1, half:RWY2.h/2},
+  ];
+  for(const e of alsEnds){
+    for(let i=1;i<=6;i++){
+      const ax = e.x + e.dir*(14+i*17);
+      for(let j=-2;j<=2;j++) glowDot(ax, e.y+j*4.2, 0, 1.05, `rgba(255,244,214,${glow*.72})`, 5*glow);
+      if(i===strobeIdx+1) glowDot(ax, e.y, 0, 2.2, `rgba(255,255,255,${.5+glow*.5})`, 13);
+    }
+    for(let k=0;k<4;k++){
+      const col = k<2 ? `rgba(255,92,92,${.45+glow*.5})` : `rgba(255,250,238,${.45+glow*.5})`;
+      glowDot(e.x - e.dir*(86+k*9), e.y + e.half + 9, 0, 1.5, col, 6);
+    }
+  }
+  /* ── 유도로 표지판 (A1~A6) ── */
+  const twSigns = [[235,'A1'],[430,'A2'],[620,'A3'],[812,'A4'],[1005,'A5'],[1128,'A6']];
+  ctx.textAlign='center';
+  for(const [sx,txt] of twSigns){
+    const s=iso(sx,TAXI_Y+15,0);
+    ctx.fillStyle='#0f1317'; ctx.fillRect(s[0]-9,s[1]-9,18,8);
+    ctx.strokeStyle='#2a2f35'; ctx.lineWidth=.7; ctx.strokeRect(s[0]-9,s[1]-9,18,8);
+    ctx.fillStyle='#ffd83d'; ctx.font='bold 6.5px monospace';
+    ctx.fillText(txt, s[0], s[1]-3);
+  }
+  /* ── 화물 계류장 (남동) + ULD 컨테이너 야드 ── */
+  flat(1348, 316, 116, 132, '#39444f');
+  strokeIso([[1352,320],[1460,320],[1460,444],[1352,444],[1352,320]],1.1,'rgba(226,232,238,.2)');
+  strokeIso([[1398,318],[1398,368]],1.4,'#e0be3c');
+  bill('CARGO', 1406, 336, 0, 'bold 8.5px sans-serif', '#cfe0f2');
+  bill('C1', 1382, 330, 0, 'bold 8px sans-serif', '#ffd83d');
+  const uld=['#8f5b2f','#37648f','#3f7d4f','#7a4f8f','#8f8340'];
+  for(let i=0;i<10;i++){
+    const ux=1354+(i%5)*20, uy=408+Math.floor(i/5)*17;
+    box(ux,uy,13,11,8,uld[i%5]);
+  }
+  /* ── 연료 저장소 (탱크팜) ── */
+  flat(12, 112, 96, 74, 'rgba(52,62,70,.55)');
+  strokeIso([[14,114],[106,114],[106,184],[14,184],[14,114]],1.1,'rgba(200,214,226,.28)',[5,4]);
+  fuelTank(40,138,12,26,'#c3cad1');
+  fuelTank(66,152,12,26,'#c3cad1');
+  fuelTank(90,166,10,21,'#aeb6bd');
+  bill('FUEL FARM', 58, 186, 0, 'bold 7.5px sans-serif', '#9fb4c8');
+  /* ── 감시 레이더 (회전) ── */
+  {
+    const base=iso(760,-42,0), top=iso(760,-42,40);
+    ctx.strokeStyle='#98a5b2'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(base[0],base[1]); ctx.lineTo(top[0],top[1]); ctx.stroke();
+    ctx.strokeStyle='#77848f'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(base[0]-6,base[1]+2); ctx.lineTo(top[0],top[1]+6); ctx.moveTo(base[0]+6,base[1]+2); ctx.lineTo(top[0],top[1]+6); ctx.stroke();
+    const a=gameT*2.2;
+    ctx.strokeStyle='#dfe7ee'; ctx.lineWidth=2.4;
+    ctx.beginPath(); ctx.moveTo(top[0]-Math.cos(a)*11, top[1]-Math.sin(a)*4.4); ctx.lineTo(top[0]+Math.cos(a)*11, top[1]+Math.sin(a)*4.4); ctx.stroke();
+    if(Math.floor(gameT*2)%2===0) glowDot(760,-42,44,1.6,'rgba(255,80,80,.9)',8);
+    bill('RADAR', 760, -28, 0, 'bold 7px sans-serif', '#93a8bd');
+  }
+  /* ── 외곽 보안 펜스 (북측) ── */
+  strokeIso([[20,-14],[1290,-14]], 1, 'rgba(150,172,194,.22)', [7,5]);
+  for(let fx=20;fx<1290;fx+=58) glowDot(fx,-14,7,.7,'rgba(170,190,210,.35)',0);
+  /* ── 랜드사이드: 주차 타워 + 주차장 + 도로 트래픽 ── */
+  box(168, 798, 132, 62, 11, '#3a4550');
+  box(176, 804, 116, 50, 11, '#46525e', 11);
+  box(184, 810, 100, 38, 10, '#525f6c', 22);
+  for(let lv=0;lv<3;lv++)
+    for(let wx=196;wx<268;wx+=18)
+      flat(wx, 816+lv*1e-9, 12, 5, 'rgba(20,28,36,.0)');
+  for(let i=0;i<8;i++) flat(190+(i%4)*24, 814+Math.floor(i/4)*16, 13, 7, CAR_COLORS[(i*3)%8]);
+  bill('P', 234, 830, 44, 'bold 13px sans-serif', '#6fc2ff');
+  bill('주차 타워', 234, 866, 0, 'bold 8px sans-serif', '#9db8d4');
+  for(let i=0;i<26;i++){
+    if((i*7)%10>6) continue;
+    const px=356+(i%13)*62, py=816+Math.floor(i/13)*30;
+    flat(px, py, 15, 8, CAR_COLORS[(i*5)%8]);
+    flat(px+3, py+2, 8, 4, 'rgba(200,225,245,.25)');
+  }
+  const carGlow = glow>.4;
+  for(let k=0;k<6;k++){
+    const hx = ((gameT*34 + k*225) % 1360) - 60;
+    flat(hx, 884, 15, 7, CAR_COLORS[k%8]);
+    if(carGlow) glowDot(hx+15, 887, 2, 1.1, 'rgba(255,246,214,.85)', 6);
+    const hx2 = 1300 - ((gameT*42 + k*258) % 1400);
+    flat(hx2, 897, 15, 7, CAR_COLORS[(k+3)%8]);
+    if(carGlow) glowDot(hx2, 900, 2, 1.1, 'rgba(255,120,120,.7)', 5);
+  }
+  /* ── 커브사이드 셔틀버스 ── */
+  {
+    const bx = 590 + Math.sin(gameT*.22)*170;
+    box(bx, 786, 30, 10, 10, '#2f6fbf');
+    flat(bx+2, 787.5, 26, 2.5, 'rgba(190,220,250,.55)');
+    box(510, 788, 26, 9, 9, '#3f8f5f');
+    bill('셔틀', 523, 806, 0, 'bold 7px sans-serif', '#a9d8bc');
+  }
+  ctx.textAlign='center';
+}
+function drawAirportExtension(th){
+  // T2 동쪽 콩코스: 기존 단지와 이어지는 실제 공항 확장 구역
+  flat(1130, 205, 210, 82, '#3f4b58');
+  for(const gx of GATE_XS.slice(4)){
+    flat(gx-64,210,128,70,'#505e6c');
+    strokeIso([[gx-64,210],[gx+64,210],[gx+64,280],[gx-64,280],[gx-64,210]],1.2,'#e4c546');
+  }
+  flat(1160,285,180,490,'#2b3b4c');
+  flat(1180,302,140,82,'rgba(77,163,255,.11)');
+  flat(1180,430,140,98,'rgba(255,209,102,.07)');
+  flat(1180,548,140,168,'rgba(37,58,77,.46)');
+  box(1160,285,180,12,28,th.wall);
+  box(1320,285,12,490,28,th.wall);
+  flat(TERM.x2-8,742,14,32,'#3ddc84');
+  bill('ARRIVALS',TERM.x2-3,738,4,'700 8px sans-serif','#b8f2cf');
+  bill('T2 · EAST CONCOURSE',1245,306,30,'700 10px sans-serif','#a9c9ee');
+  bill('환승 · 보안 확장',1245,450,0,'10px sans-serif','#d8b55c');
+  // 공항 서비스 단지: 관제·화물·직원 동선
+  flat(1210,790,210,72,'#26313d');
+  for(let x=1226;x<1405;x+=34) flat(x,804,22,10,'#4a5866');
+  box(1220,744,92,42,24,'#4d6576');
+  box(1320,744,62,42,19,'#6a5960');
+  bill('CARGO',1266,766,29,'700 9px sans-serif','#c8dcf0');
+  bill('OPS',1351,766,24,'700 9px sans-serif','#ffd166');
+  strokeIso([[1210,780],[1425,780]],10,'#4a5360');
+  strokeIso([[1210,780],[1425,780]],1.2,'#e4c546');
+}
+function drawStatic(){
+  const th = TH();
+  if(ART.worldReady){
+    ctx.drawImage(ART.world,0,0,W,H);
+    drawAirportExtension(th);
+    drawRealAirport();
+    bill('09L', RWY.x1+80, RWY.y+3, 0, 'bold 12px sans-serif', 'rgba(232,232,232,.9)');
+    bill('27R', RWY.x2-80, RWY.y+3, 0, 'bold 12px sans-serif', 'rgba(232,232,232,.9)');
+    // 실시간 상태만 환경 베이스 위에 코드로 유지
+    for(let i=0;i<GATE_XS.length;i++){
+      const open=i<S.up.gates, gx=GATE_XS[i];
+      if(!open) flat(gx-52,210,104,70,'rgba(4,10,17,.58)');
+      bill(open?`G${i+1}`:'잠김',gx+38,224,2,'700 10px sans-serif',open?'rgba(235,245,255,.84)':'#718095');
+    }
+    const activeX=S.runwayDir===9?RWY.x1+82:RWY.x2-82;
+    bill(S.runwayDir===9?'09L 운용':'27R 운용',activeX,RWY.y-28,2,'700 10px sans-serif',runwayMismatch()?'#ffb3b3':'#8ce2b1');
+    return;
+  }
+  // 잔디 재질 + 새벽 환경광
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, th.grass[0]); g.addColorStop(1, th.grass[1]);
+  ctx.fillStyle = ART.patterns.grass || g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=g; ctx.globalAlpha=ART.atlasReady ? .52 : 1; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+  const terrainGlow=ctx.createRadialGradient(780,330,80,780,330,760);
+  terrainGlow.addColorStop(0,'rgba(92,148,129,.22)'); terrainGlow.addColorStop(1,'rgba(4,12,20,.12)');
+  ctx.fillStyle=terrainGlow; ctx.fillRect(0,0,W,H);
+  // 잔디 스트라이프 (잔디깎기 자국)
+  for(let y=0; y<800; y+=64) flat(-100, y, 1500, 32, 'rgba(0,0,0,.045)');
+  // 공항 외곽 서비스 도로와 주차장
+  flat(20, 188, 1230, 16, 'rgba(29,38,47,.82)');
+  strokeIso([[35,196],[1235,196]],1,'rgba(220,225,230,.22)',[10,12]);
+  flat(80, 805, 1120, 70, 'rgba(33,42,50,.88)');
+  for(let x=110;x<1160;x+=38){
+    strokeIso([[x,814],[x,856]],1,'rgba(230,235,240,.16)');
+    if(x%76===34) flat(x+5,825,18,8,'rgba(100,118,134,.28)');
+  }
+  // 활주로
+  flatMaterial(RWY.x1, RWY.y-RWY.h/2, RWY.x2-RWY.x1, RWY.h,'runway',th.runway,.96);
+  flat(RWY.x1, RWY.y-RWY.h/2, RWY.x2-RWY.x1, RWY.h, 'rgba(12,18,24,.25)');
+  // 스키드 마크 (접지 구역 타이어 자국)
+  for(let i=0;i<9;i++){
+    const sx0 = 235 + (i*53)%180, sy0 = RWY.y - 8 + (i*7)%16;
+    flat(sx0, sy0, 26+(i%3)*10, 2.2, 'rgba(10,10,12,.28)');
+  }
+  strokeIso([[RWY.x1+60,RWY.y],[RWY.x2-60,RWY.y]], 2.2, '#e8e8e8', [22,18]);
+  for(let i=0;i<6;i++){
+    flat(RWY.x1+10, RWY.y-15+i*5.4, 34, 2.6, '#e8e8e8');
+    flat(RWY.x2-44, RWY.y-15+i*5.4, 34, 2.6, '#e8e8e8');
+  }
+  // 접지대(TDZ) 마킹 + 조준점
+  for(const tx of [250, 300, 350]){
+    flat(tx, RWY.y-13, 22, 3.4, 'rgba(232,232,232,.85)');
+    flat(tx, RWY.y+10, 22, 3.4, 'rgba(232,232,232,.85)');
+  }
+  flat(205, RWY.y-11, 34, 5, '#e8e8e8');
+  flat(205, RWY.y+6,  34, 5, '#e8e8e8');
+  bill('09L', RWY.x1+80, RWY.y+3, 0, 'bold 13px sans-serif', '#e8e8e8');
+  bill('27R', RWY.x2-80, RWY.y+3, 0, 'bold 13px sans-serif', '#e8e8e8');
+  const activeX = S.runwayDir===9 ? RWY.x1+80 : RWY.x2-80;
+  const activeDir = S.runwayDir===9 ? '▶ 09L 운용' : '27R 운용 ◀';
+  bill(activeDir, activeX, RWY.y-28, 0, 'bold 10px sans-serif', runwayMismatch()?'#ffb3b3':'#79d9a4');
+  // 유도로
+  const taxiPts = [
+    [[150,TAXI_Y],[1150,TAXI_Y]],
+    [[150,RWY.y+RWY.h/2],[150,TAXI_Y]],
+    [[1150,RWY.y+RWY.h/2],[1150,TAXI_Y]],
+  ];
+  for(const gx of GATE_XS) taxiPts.push([[gx,TAXI_Y],[gx,STAND_Y+8]]);
+  const rapidRoutes=[[950,1020],[810,880],[710,770],[650,700]];
+  rapidRoutes.slice(0,S.up.rapid).forEach(([rx,tx])=>taxiPts.push([[rx,RWY.y],[tx,TAXI_Y]]));
+  for(const seg of taxiPts) strokeIso(seg, 15, th.taxi);
+  for(const seg of taxiPts) strokeIso(seg, 1.4, '#e6c33a');
+  // 에이프런 (PBR 콘크리트 + 신축 이음매 + 오일 자국)
+  flatMaterial(TERM.x1, 205, TERM.x2-TERM.x1, 80,'apron',th.apron,.92);
+  flat(TERM.x1,205,TERM.x2-TERM.x1,80,'rgba(31,42,53,.16)');
+  for(let x=TERM.x1+40; x<TERM.x2; x+=80) strokeIso([[x,206],[x,284]], 1, 'rgba(0,0,0,.12)');
+  strokeIso([[TERM.x1,245],[TERM.x2,245]], 1, 'rgba(0,0,0,.12)');
+  GATE_XS.forEach((gx,i)=>{
+    if(i>=S.up.gates) return;
+    const s = iso(gx+12, 242, 0);
+    ctx.fillStyle='rgba(0,0,0,.10)';
+    ctx.beginPath(); ctx.ellipse(s[0], s[1], 14, 6, 0, 0, 7); ctx.fill();
+  });
+  gates.forEach((gt,i)=>{
+    const un = i < S.up.gates;
+    if(un) flatMaterial(gt.x-52,210,104,70,'apron',th.stand,.88);
+    else flat(gt.x-52, 210, 104, 70, 'rgba(0,0,0,.16)');
+    strokeIso([[gt.x-52,210],[gt.x+52,210],[gt.x+52,280],[gt.x-52,280],[gt.x-52,210]], 1.4, un?'#e6c33a':'#5a5f6a');
+    bill(un?`G${i+1}`:'🔒', gt.x+38, 224, 0, 'bold 11px sans-serif', un?'#e8ecf5':'#7a8090');
+  });
+  // 터미널 바닥
+  flatMaterial(TERM.x1, TERM.y1, TERM.x2-TERM.x1, TERM.y2-TERM.y1,'apron',th.floor,.62);
+  flat(TERM.x1, TERM.y1, TERM.x2-TERM.x1, TERM.y2-TERM.y1,'rgba(22,48,69,.18)');
+  // 외곽 메탈 루프 캡 — 생성 아틀라스의 터미널 재질 사용
+  flatMaterial(TERM.x1,TERM.y1,TERM.x2-TERM.x1,22,'terminal',th.wall,.90);
+  flatMaterial(TERM.x1,TERM.y1,22,TERM.y2-TERM.y1,'terminal',th.wall,.86);
+  ctx.strokeStyle='rgba(255,255,255,.04)'; ctx.lineWidth=1;
+  for(let x=TERM.x1; x<=TERM.x2; x+=46) strokeIso([[x,TERM.y1],[x,TERM.y2]], 1, 'rgba(255,255,255,.04)');
+  for(let y=TERM.y1; y<=TERM.y2; y+=46) strokeIso([[TERM.x1,y],[TERM.x2,y]], 1, 'rgba(255,255,255,.04)');
+  // 구역 바닥 색
+  GATE_XS.forEach((gx,i)=>{
+    const un = i < S.up.gates;
+    flat(gx-95, LOUNGE.y1, 190, LOUNGE.y2-LOUNGE.y1, un ? 'rgba(77,163,255,.08)' : 'rgba(0,0,0,.24)');
+    bill(un?`탑승구 ${i+1}`:'잠김', gx, LOUNGE.y1+16, 26, 'bold 11px sans-serif', un?'#9db8e0':'#586178');
+    if(un){
+      const pl = gates[i].plane;
+      if(pl && (pl.state==='board'||pl.state==='deboard')){
+        bill(pl.state==='board' ? `${pl.code} 탑승중` : `${pl.code} 하기중`, gx, LOUNGE.y2-4, 0,
+             'bold 10px sans-serif', pl.state==='board' ? '#3ddc84' : '#ffd166');
+      }
+    }
+  });
+  flat(CORRIDOR_X-38, LOUNGE.y1, 76, TERM.y2-LOUNGE.y1-8, 'rgba(61,220,132,.06)');
+  bill('도착 ▶ 출구', CORRIDOR_X, 545, 0, 'bold 10px sans-serif', '#69b98a');
+  flat(TERM.x1+16, 438, 890, 100, 'rgba(255,209,102,.06)');
+  bill('보 안 검 색', 265, 458, 0, 'bold 11px sans-serif', '#c9a94f');
+  bill('체 크 인', 190, 590, 0, 'bold 11px sans-serif', '#9db8e0');
+  // 크루룸
+  flat(146, 396, 62, 34, 'rgba(199,125,255,.10)');
+  bill(`CREW L${S.up.crewLounge}`, 177, 418, 0, 'bold 9px sans-serif', '#c99ae0');
+  // 입구
+  flat(DOOR.x1, TERM.y2-8, DOOR.x2-DOOR.x1, 10, '#1a2233');
+  for(let x=DOOR.x1+10; x<DOOR.x2-10; x+=65) flat(x, TERM.y2-7, 34, 8, '#4da3ff');
+  bill('▲ 터미널 입구 ▲', (DOOR.x1+DOOR.x2)/2, TERM.y2-16, 0, 'bold 10px sans-serif', '#9db8e0');
+  // 출구 문
+  flat(CORRIDOR_X+26, 748, 10, 24, '#3ddc84');
+  // 지하 수하물 분류장 컷어웨이
+  flat(BAGGAGE.x, BAGGAGE.y, BAGGAGE.w, BAGGAGE.h, '#172033');
+  strokeIso([[BAGGAGE.x,BAGGAGE.y],[BAGGAGE.x+BAGGAGE.w,BAGGAGE.y],[BAGGAGE.x+BAGGAGE.w,BAGGAGE.y+BAGGAGE.h],[BAGGAGE.x,BAGGAGE.y+BAGGAGE.h],[BAGGAGE.x,BAGGAGE.y]], 1.2, '#425979');
+  for(let x=BAGGAGE.x+24;x<BAGGAGE.x+BAGGAGE.w-16;x+=42){
+    flat(x, BAGGAGE.y+24, 28, 9, '#303d56');
+    flat(x, BAGGAGE.y+48, 28, 9, '#303d56');
+  }
+  bill(`B1 · 수하물 분류장 L${S.up.baggage}`, BAGGAGE.x+BAGGAGE.w/2, BAGGAGE.y+14, 12, 'bold 10px sans-serif', '#91b9ed');
+  bill('체크인 ↓  분류 →  게이트', BAGGAGE.x+BAGGAGE.w/2, BAGGAGE.y+BAGGAGE.h-8, 0, '9px sans-serif', '#6f91be');
+  // 공항 간판
+  bill(`✈ ${S.name} 국제공항`, (TERM.x1+TERM.x2)/2, TERM.y1-8, 40, 'bold 15px sans-serif', 'rgba(255,255,255,.5)');
+  drawRealAirport();
+}
+function drawRetailFacility(d, it){
+  const s=iso(d.x,d.y,0);
+  if(ART.retailReady && Number.isInteger(it.sprite)){
+    const sw=ART.retail.naturalWidth/3, sh=ART.retail.naturalHeight;
+    ctx.drawImage(ART.retail,sw*it.sprite,0,sw,sh,s[0]-62,s[1]-100,124,108);
+  } else {
+    box(d.x-31,d.y-18,62,36,24,it.t==='duty'?'#25446b':it.t==='snack'?'#a84232':'#765034');
+    ctx.font='22px sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.fillText(it.em,s[0],s[1]-24);
+  }
+  const q=retailQueue(d), sales=d.sales||0;
+  ctx.font='700 8.5px sans-serif'; ctx.textAlign='center';
+  ctx.fillStyle='rgba(6,14,24,.82)'; ctx.beginPath(); ctx.roundRect(s[0]-42,s[1]+7,84,15,4); ctx.fill();
+  ctx.fillStyle=it.t==='duty'?'#ffd166':it.t==='snack'?'#ffb29c':'#cfe7ff';
+  ctx.fillText(`${it.name}  ${q?`대기 ${q}`:`매출 ₩${sales}`}`,s[0],s[1]+18);
+}
+function drawUpgradeInfrastructure(add){
+  // 레벨 상승 시 실제 공간·장비·처리 라인 노출
+  for(let i=0;i<S.up.checkinTech*2;i++){
+    const x=760+(i%4)*36, y=610+Math.floor(i/4)*22;
+    add(x+y,()=>{ box(x-6,y-6,12,10,16,'#2e6688'); const s=iso(x,y,18); ctx.fillStyle='#68d7ff'; ctx.fillRect(s[0]-3,s[1]-3,6,3); });
+  }
+  for(let i=0;i<S.up.securityTech;i++){
+    const x=SEC_XS[Math.min(SEC_XS.length-1,i+2)], y=SEC_Y-32;
+    add(x+y,()=>{ box(x-10,y-5,20,10,20,'#4c7180'); const s=iso(x,y,22); ctx.fillStyle='#7df0ff'; ctx.fillRect(s[0]-7,s[1]-4,14,3); });
+  }
+  for(let i=0;i<S.up.baggage;i++){
+    const x=BAGGAGE.x+30+i*55, y=BAGGAGE.y+61;
+    add(x+y,()=>{ box(x-18,y-5,36,8,7,'#53697f'); });
+  }
+  if(S.up.tower>=3){
+    add(100+212,()=>{ const c=iso(100,212,98); ctx.strokeStyle='rgba(90,210,255,.55)'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.ellipse(c[0],c[1],12+S.up.tower*3,5+S.up.tower,0,0,7); ctx.stroke(); });
+  }
+}
+function collectDynamic(){
+  const th = TH();
+  const objs = [];
+  const add = (d, fn)=>objs.push({d, fn});
+  // 벽 (북/서, 세그먼트)
+  for(let x=TERM.x1; x<TERM.x2; x+=80){
+    const w = Math.min(80, TERM.x2-x);
+    add(x + TERM.y1, ()=>{
+      box(x,TERM.y1-5,w,5,26,th.wall);
+      box(x,TERM.y1-7,w,9,3,'#34485b',26);
+    });
+  }
+  for(let y=TERM.y1; y<TERM.y2; y+=80){
+    const h = Math.min(80, TERM.y2-y);
+    add(TERM.x1 + y, ()=>{
+      box(TERM.x1-5,y,5,h,26,th.wall);
+      box(TERM.x1-7,y,9,h,3,'#2e4255',26);
+    });
+  }
+  // 게이트 문 (북벽 위 표시)
+  for(let i=0;i<S.up.gates;i++){
+    const gx = GATE_XS[i];
+    add(gx + TERM.y1 + 1, ()=>{
+      isoPath([[gx-14,TERM.y1-5,20],[gx+14,TERM.y1-5,20],[gx+14,TERM.y1-5,2],[gx-14,TERM.y1-5,2]]);
+      ctx.fillStyle='#4da3ff'; ctx.fill();
+    });
+    // 탑승교 — 터미널 연결부, 가동 통로, 로툰다
+    add(gx + 272, ()=>{
+      box(gx-10,258,20,26,11,'#9ca8b7');
+      box(gx-15,248,30,13,14,'#536b7f');
+      box(gx-13,246,26,8,3,'#b9c6d2',14);
+      const win=iso(gx,257,10);
+      ctx.fillStyle='rgba(111,190,232,.42)'; ctx.fillRect(win[0]-10,win[1]-3,20,4);
+    });
+  }
+  // 라운지 좌석
+  for(let i=0;i<S.up.gates;i++){
+    const gx = GATE_XS[i];
+    for(let r=0;r<3;r++){
+      const sy = LOUNGE.y1+32+r*20;
+      add(gx + sy, ()=>box(gx-70, sy, 140, 5, 7, '#5a6580'));
+    }
+    // 게이트 데스크
+    add(gx-26 + LOUNGE.y1+20, ()=>box(GATE_XS[i]-38, LOUNGE.y1+18, 24, 8, 12, '#7a5ad9'));
+  }
+  // 보안 검색대
+  for(let i=0;i<3;i++){
+    const sx = SEC_XS[i], un = i < S.up.security;
+    const c = un ? '#8a93a5' : '#464d59';
+    add(sx + SEC_Y, ()=>{
+      box(sx-22, SEC_Y-6, 7, 7, 24, c);
+      box(sx+15, SEC_Y-6, 7, 7, 24, c);
+      isoPath([[sx-22,SEC_Y-4,24],[sx+22,SEC_Y-4,24],[sx+22,SEC_Y-4,19],[sx-22,SEC_Y-4,19]]);
+      ctx.fillStyle=shade(c,-14); ctx.fill();
+      box(sx-52, SEC_Y-4, 26, 20, 10, un?'#3a4152':'#31363f');
+      if(!un) bill('잠김', sx, SEC_Y+42, 0, '9px sans-serif', '#586178');
+    });
+  }
+  // 체크인 카운터
+  for(let i=0;i<CHK_XS.length;i++){
+    const cx = CHK_XS[i], un = i < S.up.counters;
+    add(cx + CHK_Y, ()=>{
+      box(cx-30, CHK_Y-14, 60, 15, 14, un?'#4a6fae':'#3a4152');
+      if(un){
+        box(cx-8, CHK_Y-12, 16, 3, 8, '#2c3a55', 14);
+        bill(String(i+1), cx, CHK_Y+22, 0, 'bold 9px sans-serif', '#cfd6e4');
+      } else bill('잠김', cx, CHK_Y+22, 0, '9px sans-serif', '#586178');
+    });
+  }
+  drawUpgradeInfrastructure(add);
+  // 출발 전광판 (기둥 + 스크린 빌보드)
+  add(790 + 576, ()=>{
+    box(786, 574, 8, 5, 26, '#3a4152');
+    const p0 = iso(790, 576, 30);
+    const bw = 128, bh = 42;
+    ctx.fillStyle='#0a0f18';
+    ctx.strokeStyle='#2a3a5c'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.roundRect(p0[0]-bw/2, p0[1]-bh, bw, bh, 4); ctx.fill(); ctx.stroke();
+    ctx.font='bold 8.5px monospace'; ctx.textAlign='center';
+    ctx.fillStyle='#ffd166';
+    ctx.fillText('DEPARTURES 출발', p0[0], p0[1]-bh+11);
+    ctx.font='8.5px monospace';
+    let row=0;
+    for(const p of planes){
+      if(row>=2) break;
+      if(['taxiIn','deboard','service','board','land'].includes(p.state) && p.gate){
+        const st = p.state==='board' ? 'BOARDING' : p.state==='service' ? 'SERVICE ' : p.state==='deboard' ? 'ARRIVED' : 'ON TAXI';
+        ctx.fillStyle = p.state==='board' ? '#3ddc84' : '#8fa3c8';
+        ctx.fillText(`${p.code} G${p.gate.idx+1} ${st}`, p0[0], p0[1]-bh+22+row*10);
+        row++;
+      }
+    }
+    if(row===0){ ctx.fillStyle='#586178'; ctx.fillText('-- NO FLIGHTS --', p0[0], p0[1]-bh+22); }
+  });
+  // 장식/상점
+  for(const d of S.decor){
+    const it = DECOR[d.t]; if(!it) continue;
+    add(d.x + d.y, ()=>{
+      if(it.cap){
+        drawRetailFacility(d,it);
+      } else {
+        const s = iso(d.x, d.y, 0);
+        ctx.fillStyle='rgba(0,0,0,.25)';
+        ctx.beginPath(); ctx.ellipse(s[0], s[1], 8, 3.5, 0, 0, 7); ctx.fill();
+        ctx.font='16px sans-serif'; ctx.textAlign='center';
+        ctx.fillText(it.em, s[0], s[1]-4);
+      }
+    });
+  }
+  // 수하물 카트
+  for(const c of carts){
+    if(c.gate >= S.up.gates) continue;
+    add(c.x + c.y, ()=>{
+      box(c.x-9, c.y-5, 12, 9, 7, '#c9a23f');
+      box(c.x+5, c.y-4, 9, 7, 5, '#7a828f');
+      if(c.active) box(c.x+6, c.y-3, 7, 5, 3, '#4a5568', 5);
+    });
+  }
+  // 지하 분류·게이트 이송 수하물
+  for(const b of bags){
+    add(b.x + b.y + 1, ()=>{
+      box(b.x-4, b.y-3, 8, 6, 5, b.bag||'#c0503a');
+      if(b.x>=BAGGAGE.x && b.x<=BAGGAGE.x+BAGGAGE.w && b.y>=BAGGAGE.y && b.y<=BAGGAGE.y+BAGGAGE.h){
+        const s=iso(b.x,b.y,8);
+        ctx.fillStyle='rgba(115,190,255,.5)'; ctx.beginPath(); ctx.arc(s[0],s[1],4.5,0,7); ctx.fill();
+      }
+    });
+  }
+  // 조업 차량
+  for(const v of vehicles){
+    add(v.x + v.y + 2, ()=>{
+      if(ART.vehiclesReady){
+        drawVehicleSprite(v);
+      } else if(v.type==='fuel'){
+        box(v.x-11, v.y-5, 14, 10, 8, '#d9dade');       // 탱크
+        box(v.x+4,  v.y-4, 8, 8, 7, '#c23a3a');          // 캡
+        flat(v.x-11, v.y-1, 14, 2, '#c23a3a');
+      } else if(v.type==='cater'){
+        box(v.x-10, v.y-5, 13, 10, 12, '#e8e9ee');       // 하이리프트 박스
+        box(v.x+4,  v.y-4, 8, 8, 7, '#3a6ec0');
+      } else { // tug
+        box(v.x-7, v.y-4, 14, 8, 5, '#3e4a63');
+        box(v.x-6, v.y-3, 6, 6, 8, '#556285');
+      }
+      // 작업/이동 중 비콘
+      if(!ART.vehiclesReady && v.state!=='idle' && Math.floor(gameT*3)%2===0){
+        const s = iso(v.x, v.y, v.type==='cater'?15:11);
+        ctx.fillStyle='#ffb020';
+        ctx.beginPath(); ctx.arc(s[0], s[1], 1.8, 0, 7); ctx.fill();
+      }
+    });
+  }
+  // 관제탑 — 포토리얼 환경 베이스가 없을 때만 코드 폴백 사용
+  if(!ART.worldReady) add(100 + 212, ()=>{
+    box(84,196,32,32,8,'#46525e');
+    box(94,206,13,13,60,'#6f7d88');
+    box(90,202,21,21,6,'#a8b4bd',60);
+    box(85,197,31,31,13,'#243f55',66);
+    const cab=iso(100,212,76);
+    const glass=ctx.createLinearGradient(cab[0],cab[1]-10,cab[0],cab[1]+7);
+    glass.addColorStop(0,'rgba(157,219,255,.76)'); glass.addColorStop(.48,'rgba(35,78,108,.82)'); glass.addColorStop(1,'rgba(9,30,46,.94)');
+    ctx.fillStyle=glass; ctx.beginPath(); ctx.ellipse(cab[0],cab[1],16,7,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(190,225,245,.56)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#6f7e8b'; ctx.beginPath(); ctx.ellipse(cab[0],cab[1]+7,19,5,0,0,Math.PI*2); ctx.fill();
+    const s = iso(100, 212, 96);
+    ctx.strokeStyle='#8a93a5'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(s[0], s[1]-12); ctx.stroke();
+    if(Math.floor(gameT*1.4)%2===0){
+      ctx.fillStyle='#ff4545';
+      ctx.beginPath(); ctx.arc(s[0], s[1]-13, 2, 0, 7); ctx.fill();
+    }
+    bill('TWR', 100, 232, 0, 'bold 9px sans-serif', '#aeb8c8');
+  });
+  // 윈드삭
+  add(1120 + 45, ()=>{
+    const base = iso(1120, 45, 0), top = iso(1120, 45, 20);
+    ctx.strokeStyle='#c8ccd6'; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(top[0], top[1]); ctx.stroke();
+    const wl = 6 + weather.wind*0.55;
+    const flut = Math.sin(gameT*7)* (weather.wind*0.16);
+    const tipZ = 20 - clamp(14 - weather.wind*0.7, 0, 14) + flut;
+    const tip = iso(1120 + Math.cos(weather.dir)*wl, 45 + Math.sin(weather.dir)*wl, tipZ);
+    ctx.fillStyle='#ff7a1a';
+    ctx.beginPath();
+    ctx.moveTo(top[0], top[1]); ctx.lineTo(top[0], top[1]+4.5);
+    ctx.lineTo(tip[0], tip[1]+1.5); ctx.lineTo(tip[0], tip[1]);
+    ctx.closePath(); ctx.fill();
+  });
+  // 사람들
+  for(const q of pax){
+    add(q.x + q.y + 2, ()=>drawPerson(q.x, q.y, {
+      shirt:q.shirt, pants:q.pants, hair:q.hair, skin:q.skin, bag:q.bag,
+      moving:q._moved, phase:q.phase, seed:q.seed, angry:q.angry,
+      shopping:q.state==='shopping', luggage:q.luggage,
+    }));
+  }
+  for(const w of walkers){
+    if(w.delay>0 && w.dir==='in') continue;
+    const st = ROLE_STYLE[w.role] || {};
+    add(w.x + w.y + 2, ()=>drawPerson(w.x, w.y, {
+      shirt:st.shirt||w.shirt, pants:st.pants||w.pants, hair:w.hair, skin:w.skin,
+      hat:st.hat, hatC:st.hatC, vest:st.vest,
+      moving:w._moved, phase:w.phase, seed:w.seed, shopping:w.dir==='retailVisit',
+    }));
+  }
+  for(const s of staff){
+    const st = ROLE_STYLE[s.role] || {};
+    add(s.x + s.y + 2, ()=>drawPerson(s.x, s.y, {
+      shirt:st.shirt, pants:st.pants, hair:s.hair, skin:s.skin,
+      hat:st.hat, hatC:st.hatC, vest:st.vest,
+      moving:s._moved, phase:s.phase, seed:s.seed, armsUp:s.armsUp,
+    }));
+  }
+  // 지상 비행기
+  for(const p of planes){
+    if(p.alt<=0.01) add(p.x + p.y + 6, ()=>drawPlaneIso(p));
+  }
+  for(const a of ambient.concat(AMBIENT_PARKED)){
+    if(a.alt<=0.01) add(a.x + a.y + 6, ()=>drawPlaneIso(a));
+  }
+  return objs;
+}
+function drawGlass(){
+  const winGlow=.12+nightAmount()*.42;
+  // 터미널 유리 파사드와 구조 프레임
+  const segs = [[TERM.x1, DOOR.x1],[DOOR.x2, TERM.x2]];
+  for(const [a,b] of segs){
+    isoPath([[a,TERM.y2,18],[b,TERM.y2,18],[b,TERM.y2,0],[a,TERM.y2,0]]);
+    const glass=ctx.createLinearGradient(0,iso(a,TERM.y2,20)[1],0,iso(a,TERM.y2,0)[1]);
+    glass.addColorStop(0,'rgba(158,215,255,.12)'); glass.addColorStop(.5,'rgba(58,116,157,.055)'); glass.addColorStop(1,'rgba(255,190,105,.045)');
+    ctx.fillStyle=glass; ctx.fill();
+    ctx.strokeStyle='rgba(170,220,255,.25)'; ctx.lineWidth=1; ctx.stroke();
+    for(let x=a+34;x<b;x+=48){
+      const b0=iso(x,TERM.y2,0), t0=iso(x,TERM.y2,18);
+      ctx.strokeStyle='rgba(190,225,245,.13)'; ctx.lineWidth=.8;
+      ctx.beginPath(); ctx.moveTo(b0[0],b0[1]); ctx.lineTo(t0[0],t0[1]); ctx.stroke();
+    }
+  }
+  isoPath([[TERM.x2,TERM.y1,18],[TERM.x2,TERM.y2,18],[TERM.x2,TERM.y2,0],[TERM.x2,TERM.y1,0]]);
+  ctx.fillStyle='rgba(110,185,230,.075)'; ctx.fill();
+  ctx.strokeStyle='rgba(170,220,255,.22)'; ctx.stroke();
+  // 따뜻한 내부 창 조명
+  for(let x=TERM.x1+28;x<TERM.x2-18;x+=44){
+    if(x>DOOR.x1-18 && x<DOOR.x2+18) continue;
+    isoPath([[x,TERM.y2,14],[x+26,TERM.y2,14],[x+26,TERM.y2,4],[x,TERM.y2,4]]);
+    ctx.fillStyle=`rgba(255,194,105,${winGlow})`; ctx.fill();
+  }
+  for(let x=TERM.x1+22;x<TERM.x2-20;x+=56){
+    isoPath([[x,TERM.y1-5,16],[x+32,TERM.y1-5,16],[x+32,TERM.y1-5,6],[x,TERM.y1-5,6]]);
+    ctx.fillStyle=`rgba(113,194,237,${.10+nightAmount()*.30})`; ctx.fill();
+  }
+  // 출입구 캐노피
+  isoPath([[DOOR.x1-28,TERM.y2+4,19],[DOOR.x2+28,TERM.y2+4,19],[DOOR.x2+6,TERM.y2+52,13],[DOOR.x1-6,TERM.y2+52,13]]);
+  const canopy=ctx.createLinearGradient(0,iso(600,TERM.y2,20)[1],0,iso(600,TERM.y2+55,12)[1]);
+  canopy.addColorStop(0,'rgba(150,210,245,.26)'); canopy.addColorStop(1,'rgba(50,95,125,.10)');
+  ctx.fillStyle=canopy; ctx.fill(); ctx.strokeStyle='rgba(178,220,245,.30)'; ctx.stroke();
+  // 천장 구조선으로 공간 깊이 강화
+  for(let x=TERM.x1+30;x<TERM.x2;x+=92){
+    const a=iso(x,TERM.y1,25), b=iso(x,TERM.y2,18);
+    ctx.strokeStyle='rgba(180,215,238,.075)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+  }
+}
+function drawAmbient(n){
+  const h = S.dayMin/60;
+  let dusk = 0;
+  if(h>=17.5 && h<=20.5) dusk = 1 - Math.abs(h-19)/1.5;
+  else if(h>=5 && h<=7.5) dusk = (1 - Math.abs(h-6.2)/1.3)*0.8;
+  if(dusk>0){
+    ctx.fillStyle=`rgba(255,138,58,${clamp(dusk,0,1)*0.11})`;
+    ctx.fillRect(0,0,W,H);
+  }
+  if(weather.cur==='cloudy'||isRainy()){
+    ctx.fillStyle='rgba(60,70,90,.10)';
+    ctx.fillRect(0,0,W,H);
+  }
+  if(n>0.02){
+    ctx.fillStyle=`rgba(8,14,32,${n*0.45})`;
+    ctx.fillRect(0,0,W,H);
+  }
+  // 영화식 색보정과 화면 가장자리 깊이
+  const topLight=ctx.createLinearGradient(0,0,0,H);
+  topLight.addColorStop(0,'rgba(83,151,190,.055)');
+  topLight.addColorStop(.55,'rgba(20,49,70,.018)');
+  topLight.addColorStop(1,'rgba(2,8,15,.12)');
+  ctx.fillStyle=topLight; ctx.fillRect(0,0,W,H);
+  const vignette=ctx.createRadialGradient(W*.5,H*.43,H*.20,W*.5,H*.43,H*.78);
+  vignette.addColorStop(.35,'rgba(0,0,0,0)');
+  vignette.addColorStop(1,'rgba(0,7,14,.22)');
+  ctx.fillStyle=vignette; ctx.fillRect(0,0,W,H);
+}
+function drawWorldLights(n){
+  for(let x=RWY.x1+20; x<RWY.x2; x+=52){
+    let s = iso(x, RWY.y-RWY.h/2-3, 0);
+    ctx.shadowBlur=10*n; ctx.shadowColor='rgba(235,248,255,.9)';
+    ctx.fillStyle=`rgba(255,255,255,${n*0.9})`;
+    ctx.beginPath(); ctx.arc(s[0], s[1], 1.8, 0, 7); ctx.fill();
+    s = iso(x, RWY.y+RWY.h/2+3, 0);
+    ctx.fillStyle=`rgba(255,190,90,${n*0.9})`;
+    ctx.beginPath(); ctx.arc(s[0], s[1], 1.8, 0, 7); ctx.fill();
+  }
+  ctx.shadowBlur=0;
+  ctx.fillStyle=`rgba(90,160,255,${n*0.8})`;
+  for(let x=180; x<1150; x+=60){
+    const s = iso(x, TAXI_Y+12, 0);
+    ctx.beginPath(); ctx.arc(s[0], s[1], 1.6, 0, 7); ctx.fill();
+  }
+  // 터미널 내부 불빛
+  isoPath([[TERM.x1,TERM.y1],[TERM.x2,TERM.y1],[TERM.x2,TERM.y2],[TERM.x1,TERM.y2]]);
+  ctx.fillStyle=`rgba(255,220,140,${n*0.10})`; ctx.fill();
+  // 에이프런 투광등
+  for(const px of [250, 660, 1070]){
+    const pole = iso(px, 206, 0), top = iso(px, 206, 34);
+    ctx.strokeStyle=`rgba(150,160,175,${n})`; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.moveTo(pole[0],pole[1]); ctx.lineTo(top[0],top[1]); ctx.stroke();
+    ctx.fillStyle=`rgba(255,240,190,${n*0.95})`;
+    ctx.beginPath(); ctx.arc(top[0], top[1], 2.4, 0, 7); ctx.fill();
+    const g0 = iso(px, 246, 0);
+    const gr = ctx.createRadialGradient(g0[0],g0[1],4, g0[0],g0[1],78);
+    gr.addColorStop(0,`rgba(255,235,180,${n*0.13})`);
+    gr.addColorStop(1,'rgba(255,235,180,0)');
+    ctx.fillStyle=gr;
+    ctx.beginPath(); ctx.ellipse(g0[0],g0[1],78,36,0,0,7); ctx.fill();
+  }
+  // 차량 전조등
+  for(const v of vehicles){
+    if(v.state==='go'||v.state==='return'){
+      const s = iso(v.x, v.y+6, 3);
+      ctx.fillStyle=`rgba(255,245,200,${n*0.85})`;
+      ctx.beginPath(); ctx.arc(s[0], s[1], 1.6, 0, 7); ctx.fill();
+    }
+  }
+  // 관제탑 창
+  const tw = iso(100, 212, 76);
+  ctx.fillStyle=`rgba(180,220,255,${n*0.5})`;
+  ctx.fillRect(tw[0]-9, tw[1]-3, 18, 5);
+}
+function drawFog(){
+  ctx.fillStyle='rgba(196,205,222,.22)';
+  ctx.fillRect(0,0,W,H);
+  const t = performance.now()/1000;
+  for(let i=0;i<3;i++){
+    const fx = ((t*22*(i+1)) % (W+600)) - 300;
+    const gr = ctx.createRadialGradient(fx, 300+i*140, 40, fx, 300+i*140, 340);
+    gr.addColorStop(0,'rgba(210,218,232,.12)');
+    gr.addColorStop(1,'rgba(210,218,232,0)');
+    ctx.fillStyle=gr;
+    ctx.fillRect(0,0,W,H);
+  }
+}
+function drawClouds(){
+  const a = (WEATHERS[weather.cur]||WEATHERS.clear).cloud;
+  for(const cl of clouds){
+    const s = iso(cl.x, cl.y, 0);
+    const gr = ctx.createRadialGradient(s[0],s[1],10, s[0],s[1],cl.rx);
+    gr.addColorStop(0,`rgba(6,10,20,${a})`);
+    gr.addColorStop(1,'rgba(6,10,20,0)');
+    ctx.fillStyle=gr;
+    ctx.beginPath(); ctx.ellipse(s[0],s[1],cl.rx,cl.ry,0,0,7); ctx.fill();
+  }
+}
+function drawPuffs(){
+  for(const pf of puffs){
+    const s = iso(pf.x - pf.t*14, pf.y, 2);
+    ctx.fillStyle=`rgba(150,150,155,${clamp(0.4-pf.t*0.26,0,1)})`;
+    ctx.beginPath(); ctx.arc(s[0], s[1], pf.r + pf.t*7, 0, 7); ctx.fill();
+  }
+}
+function drawRain(){
+  const t = performance.now()/1000;
+  const heavy = isStorm();
+  ctx.fillStyle=`rgba(20,30,60,${heavy?0.22:0.10})`;
+  ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=`rgba(160,190,255,${heavy?0.35:0.25})`; ctx.lineWidth=1;
+  ctx.beginPath();
+  const n = heavy ? 100 : 55;
+  for(let i=0;i<n;i++){
+    const x = ((i*167 + t*300*(1+(i%3)*0.25)) % (W+40)) - 20;
+    const y = ((i*97 + t*640*(1+(i%4)*0.15)) % (H+30)) - 15;
+    ctx.moveTo(x, y); ctx.lineTo(x-3, y+13);
+  }
+  ctx.stroke();
+  if(heavy && (gameT % 6) < 0.12){
+    ctx.fillStyle='rgba(240,245,255,.09)';
+    ctx.fillRect(0,0,W,H);
+  }
+}
+function drawParticles(){
+  ctx.textAlign='center'; ctx.font='bold 12px sans-serif';
+  for(const p of particles){
+    const s = iso(p.x, p.y, 20);
+    ctx.globalAlpha = clamp(1-p.t/1.2, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.txt, s[0], s[1] - p.t*28);
+  }
+  ctx.globalAlpha = 1;
+}
+function drawGhost(){
+  if(!placing || !mouse.inside) return;
+  const it = DECOR[placing];
+  const ok = validSpot(mouse.x, mouse.y);
+  const s = iso(mouse.x, mouse.y, 0);
+  ctx.globalAlpha = 0.8;
+  ctx.strokeStyle = ok ? '#3ddc84' : '#ff5d5d';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(s[0], s[1], 17, 8, 0, 0, 7); ctx.stroke();
+  ctx.font='17px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(it.em, s[0], s[1]-4);
+  ctx.globalAlpha = 1;
+}
+function applyCam(){ ctx.setTransform(cam.k, 0, 0, cam.k, cam.tx, cam.ty); }
+function draw(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,W,H);
+  applyCam();
+  drawStatic();
+  if(document.getElementById('canvasWrap').classList.contains('three-ready')){
+    ctx.setTransform(1,0,0,1,0,0);
+    drawAmbient(nightAmount());
+    return;
+  }
+  const objs = collectDynamic();
+  objs.sort((a,b)=>a.d-b.d);
+  for(const o of objs) o.fn();
+  drawGlass();
+  drawClouds();
+  drawPuffs();
+  const night = nightAmount();
+  ctx.setTransform(1,0,0,1,0,0);
+  drawAmbient(night);
+  applyCam(); drawWorldLights(Math.max(night,.16)); ctx.setTransform(1,0,0,1,0,0);
+  if(isFog()) drawFog();
+  if(isRainy()) drawRain();
+  applyCam();
+  for(const p of planes) if(p.alt>0.01) drawPlaneIso(p);
+  for(const a of ambient) if(a.alt>0.01) drawPlaneIso(a);
+  drawParticles();
+  drawGhost();
+  ctx.setTransform(1,0,0,1,0,0);
+}
+
+/* ══════════════════════════ 배치(꾸미기) ══════════════════════════ */
+function validSpot(x, y){
+  if(x<TERM.x1+16 || x>TERM.x2-16 || y<LOUNGE.y1+8 || y>TERM.y2-18) return false;
+  const blocked = [
+    [TERM.x1+16, 438, 890, 100],
+    [200, 585, 380, 78],
+    [640, 566, 300, 72],
+    [TERM.x1, 728, TERM.x2-TERM.x1, 60],
+    [CORRIDOR_X-42, LOUNGE.y1, 84, 500],
+    [140, 392, 76, 46],  // 크루룸
+  ];
+  for(let i=0;i<S.up.gates;i++){
+    blocked.push([GATE_XS[i]-32, 285, 64, 34]);
+  }
+  for(const [bx,by,bw,bh] of blocked){
+    if(x>bx-14 && x<bx+bw+14 && y>by-14 && y<by+bh+14) return false;
+  }
+  for(const d of S.decor){
+    const placed=DECOR[d.t], selected=DECOR[placing];
+    const gap=(placed?.cap||selected?.cap)?105:34;
+    if(dist(x,y,d.x,d.y)<gap) return false;
+  }
+  return true;
+}
+function setPlacing(key){
+  placing = (placing===key) ? null : key;
+  removing = false;
+  syncDecorUI();
+}
+function syncDecorUI(){
+  document.querySelectorAll('.decorCard').forEach(c=>{
+    c.classList.toggle('on', c.dataset.k===placing);
+  });
+  document.getElementById('removeBtn').classList.toggle('active', removing);
+  const hint = document.getElementById('placeHint');
+  if(placing){
+    const it = DECOR[placing];
+    hint.style.display='block';
+    hint.textContent = it.cap
+      ? `${it.em} ${it.name} 배치 중 — 하단 상업 구역 가까이를 클릭 (₩${it.cost.toLocaleString()}) · ESC 취소`
+      : `${it.em} ${it.name} 배치 중 — 터미널 안 초록 링 위치를 클릭 (₩${it.cost.toLocaleString()}) · ESC 취소`;
+  } else if(removing){
+    hint.style.display='block';
+    hint.textContent = '🔨 철거 모드 — 없앨 시설을 클릭하세요 (50% 환불) · ESC 취소';
+  } else hint.style.display='none';
+  cv.style.cursor = (placing||removing) ? 'crosshair' : 'default';
+}
+
+/* ══════════════════════════ 관제 스트립 UI ══════════════════════════ */
+const stripsEl = document.getElementById('strips');
+const noFlightsEl = document.getElementById('noFlights');
+let selectedFlightId = null;
+let listFilterVal = 'all';
+const STATE_META = {
+  hold:      ['접근 중','c-blue','app'],   land:   ['착륙 중','c-green','app'],
+  taxiIn:    ['택싱 인','c-dim','gnd'],    deboard:['하기 중','c-gold','gnd'],
+  service:   ['조업 중','c-gold','gnd'],   board:  ['탑승 중','c-green','gnd'],
+  readyPush: ['푸시백 대기','c-gold','gnd'], pushback:['푸시백','c-dim','dep'],
+  pushTurn:  ['푸시백','c-dim','dep'],     taxiOut:['활주 중','c-green','dep'],
+  holdShort: ['이륙 대기','c-blue','dep'], lineUp: ['활주로 진입','c-green','dep'],
+  takeoff:   ['이륙 중','c-green','dep'],
+};
+const fmtClock = m => `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(Math.floor(m%60)).padStart(2,'0')}`;
+function flightTime(p){
+  if(p.state==='hold') return fmtClock(S.dayMin + 2 + (p.id%3));
+  return fmtClock(((p.std%1440)+1440)%1440);
+}
+function buildStrip(p){
+  const root = document.createElement('div');
+  root.className = 'fRow' + (p.kind==='medical'?' med':p.kind==='vip'?' vip':'');
+  const badge = p.kind==='medical' ? '🚑 ' : p.kind==='vip' ? '👑 ' : '';
+  root.innerHTML = `
+    <span class="al" style="background:${p.color}">${p.code.slice(0,2)}</span>
+    <div class="fInfo"><b>${badge}${p.code}</b><span>${p.model||p.type.name}</span></div>
+    <div class="fOrig">${p.origin ? p.origin[0]+' ('+p.origin[1]+')' : ''}</div>
+    <div class="fRight"><b class="fStatus"></b><span class="fTime"></span></div>
+    <div class="fBar"><i></i></div>`;
+  const strip = {
+    root,
+    status: root.querySelector('.fStatus'),
+    time: root.querySelector('.fTime'),
+    bar: root.querySelector('.fBar'),
+    fill: root.querySelector('.fBar i'),
+  };
+  root.onclick = ()=>{ selectedFlightId = p.id; updateFeatured(); updateStrips(); sfx('click'); };
+  p.strip = strip;
+  stripsEl.appendChild(root);
+}
+function stripProgress(p){
+  switch(p.state){
+    case 'hold': return p.patience/(p.kind==='medical'?55:100);
+    case 'deboard': return (p.paxArr-p.arrLeft)/Math.max(1,p.paxArr);
+    case 'service': return ((p.svcFuel?1:0)+(p.svcCater?1:0))/2;
+    case 'board': return p.paxDep>0 ? p.boarded/p.paxDep : -1;
+    default: return -1;
+  }
+}
+function updateStrips(){
+  noFlightsEl.style.display = planes.length ? 'none' : 'block';
+  for(const p of planes){
+    const s = p.strip; if(!s) continue;
+    const meta = STATE_META[p.state] || ['—','c-dim','gnd'];
+    const visible = listFilterVal==='all' || meta[2]===listFilterVal;
+    s.root.style.display = visible ? 'grid' : 'none';
+    s.root.classList.toggle('sel', p.id===selectedFlightId);
+    let label = meta[0];
+    if(p.state==='hold' && p.patience<30) label = `회항 ${Math.ceil(p.patience)}초`;
+    if(['taxiIn','deboard','service','board','readyPush'].includes(p.state) && p.gate) label = `게이트 ${p.gate.idx+1} · ${meta[0]}`;
+    s.status.textContent = label;
+    s.status.className = 'fStatus ' + (p.state==='hold' && p.patience<30 ? 'c-red' : meta[1]);
+    s.time.textContent = flightTime(p);
+    const prog = stripProgress(p);
+    if(prog>=0){
+      s.bar.style.display='block';
+      s.fill.style.width = clamp(prog*100,0,100)+'%';
+      s.fill.style.background = p.state==='hold' && p.patience<30 ? 'var(--red)' : 'var(--accent)';
+    } else s.bar.style.display='none';
+  }
+}
+
+/* ══════════════════════════ 확장 상점 UI ══════════════════════════ */
+const SHOP = [
+  {key:'counters', icon:'🛄', name:'체크인 카운터', desc:'최대 6개 · 카운터+직원 +1', costs:[0,3000,5500,9000,14000,20000], max:6},
+  {key:'security', icon:'🛂', name:'보안 검색대',   desc:'최대 5개 · 검색대+요원 +1', costs:[0,4500,8500,13500,19500], max:5},
+  {key:'gates',    icon:'🛫', name:'탑승구',        desc:'T2 포함 최대 6개 · 동시 운항↑', costs:[0,0,9000,16000,24000,34000], max:6},
+  {key:'rapid',    icon:'🛣', name:'고속탈출 유도로', desc:'최대 4개 · 활주로 점유시간↓', costs:[7000,13000,20000,28000], max:4},
+  {key:'ground',   icon:'🚜', name:'지상 조업',     desc:'최대 Lv.6 · 처리 속도·현장 만족↑', costs:[5000,8000,12000,17000,23000,30000], max:6, sat:'staff'},
+  {key:'amenity',  icon:'☕', name:'기본 편의시설',  desc:'최대 Lv.6 · 상업 수입·이용객 만족↑', costs:[4500,7000,10000,14000,19000,25000], max:6, sat:'passenger'},
+  {key:'tower',    icon:'🗼', name:'관제 자동화',   desc:'Lv1 착륙 · Lv2 이륙 · Lv3 정풍 · Lv4~5 안전예비', costs:[9000,15000,23000,32000,42000], max:5, sat:'pilot'},
+  {key:'checkinTech', icon:'📲', name:'셀프 체크인', desc:'최대 Lv.5 · Lv당 체크인 12%↓', costs:[2500,5000,8500,12500,17000], max:5, sat:'passenger'},
+  {key:'securityTech', icon:'🔎', name:'스마트 보안', desc:'최대 Lv.5 · Lv당 보안검색 12%↓', costs:[3000,6000,10000,15000,20500], max:5, sat:'passenger'},
+  {key:'baggage', icon:'🧳', name:'수하물 자동화',   desc:'최대 Lv.5 · B1 분류·적재 속도↑', costs:[3500,7000,11500,16500,22500], max:5, sat:'passenger'},
+  {key:'passengerCare', icon:'🛋', name:'여객 케어', desc:'최대 Lv.5 · 상업 이용·만족 회복', costs:[4000,7500,12000,17500,23500], max:5, sat:'visitor'},
+  {key:'crewLounge', icon:'☕', name:'승무원 라운지', desc:'최대 Lv.5 · 승무원·기장 피로 회복', costs:[4500,8000,13000,18500,24500], max:5, sat:'crew'},
+  {key:'staffRoom', icon:'🧑‍🔧', name:'직원 휴게실', desc:'최대 Lv.5 · 공항 직원 과부하 완화', costs:[3500,6500,10000,15000,21000], max:5, sat:'staff'},
+];
+const shopEl = document.getElementById('shop');
+const shopRefs = [];
+for(const it of SHOP){
+  const d = document.createElement('div');
+  d.className='shopItem';
+  d.innerHTML = `
+    <div style="font-size:19px">${it.icon}</div>
+    <div class="info">
+      <div class="nm">${it.name} <span class="lv"></span></div>
+      <div class="ds">${it.desc}</div>
+    </div>
+    <button class="btn buy"></button>`;
+  const ref = {it, lv:d.querySelector('.lv'), buy:d.querySelector('.buy')};
+  ref.buy.onclick = ()=>{
+    const lvl = S.up[it.key];
+    if(lvl>=it.max) return;
+    const cost = it.costs[lvl];
+    if(S.money<cost) return;
+    spend(cost);
+    S.up[it.key]++;
+    if(it.sat) adjustSat(it.sat, 1.2);
+    sfx('cash');
+    log(`${it.name} 확장! (Lv.${S.up[it.key]})`, 'good');
+    save();
+    updateShop();
+    syncAutoRow();
+  };
+  shopRefs.push(ref);
+  shopEl.appendChild(d);
+}
+function updateShop(){
+  for(const r of shopRefs){
+    const lvl = S.up[r.it.key];
+    r.lv.textContent = `Lv.${lvl}/${r.it.max}`;
+    if(lvl>=r.it.max){
+      r.buy.textContent='최대'; r.buy.disabled=true;
+    } else {
+      const cost = r.it.costs[lvl];
+      r.buy.textContent = `₩${cost.toLocaleString()}`;
+      r.buy.disabled = S.money<cost;
+    }
+  }
+}
+
+/* ══════════════════════════ 꾸미기 UI ══════════════════════════ */
+const themesEl = document.getElementById('themes');
+THEMES.forEach((t,i)=>{
+  const c = document.createElement('div');
+  c.className='themeChip'+(i===S.theme?' on':'');
+  c.innerHTML = `<div class="g" style="background:${t.grass[1]}"></div><div class="f" style="background:${t.floor}"></div><span>${t.name}</span>`;
+  c.onclick = ()=>{
+    S.theme = i;
+    document.querySelectorAll('.themeChip').forEach((el,j)=>el.classList.toggle('on', j===i));
+    log(`터미널 테마 변경: ${t.name}`, 'ev');
+    sfx('click');
+    save();
+  };
+  themesEl.appendChild(c);
+});
+const decorGrid = document.getElementById('decorGrid');
+for(const [k, it] of Object.entries(DECOR)){
+  const c = document.createElement('div');
+  c.className='decorCard';
+  c.dataset.k = k;
+  c.innerHTML = `<div class="em">${it.em}</div><div class="nm">${it.name}</div><div class="cost">₩${it.cost.toLocaleString()}</div><div class="eff">${it.eff}</div>`;
+  c.onclick = ()=>{ setPlacing(k); sfx('click'); };
+  decorGrid.appendChild(c);
+}
+document.getElementById('removeBtn').onclick = ()=>{
+  removing = !removing;
+  placing = null;
+  syncDecorUI();
+  sfx('click');
+};
+const nameInput = document.getElementById('nameInput');
+nameInput.value = S.name;
+document.getElementById('nameApply').onclick = ()=>{
+  const v = nameInput.value.trim();
+  if(!v) return;
+  S.name = v;
+  updateLogo();
+  log(`공항 이름 변경: ${v} 국제공항`, 'ev');
+  sfx('click');
+  save();
+};
+function updateLogo(){
+  document.getElementById('uiLogo').textContent = `✈ ${S.name} 타이쿤`;
+}
+
+/* ══════════════════════════ 상단 HUD & 탭 ══════════════════════════ */
+const $=id=>document.getElementById(id);
+const WEEKDAYS = ['월','화','수','목','금','토','일'];
+function updateHUD(){
+  $('uiMoney').textContent = '₩'+Math.floor(S.money).toLocaleString();
+  rateLog = rateLog.filter(r=>r[0] > gameT-25);           // 최근 게임 1시간(실시간 25초) 수입
+  const rate = Math.round(rateLog.reduce((n,r)=>n+r[1],0));
+  $('uiRate').textContent = `+₩${rate.toLocaleString()}/h`;
+  $('uiRate').style.color = rate>0 ? 'var(--green)' : 'var(--dim)';
+  $('uiRep').textContent = (S.rep/20).toFixed(1);
+  $('repfill').style.width = S.rep+'%';
+  $('uiDay').textContent = `${S.day}일차 (${WEEKDAYS[(S.day-1)%7]})`;
+  $('uiTime').textContent = fmtClock(S.dayMin);
+  const sched = dayStats.flights + planes.length + Math.max(0, Math.round((1440-S.dayMin)/Math.max(16,spawnInterval())));
+  $('uiFlights').textContent = `${dayStats.flights} / ${sched}`;
+  $('uiPax').textContent = S.totPax.toLocaleString();
+  const otpPct = S.otpTot>0 ? Math.round(S.otpOn/S.otpTot*100) : null;
+  $('uiOtp').textContent = otpPct===null ? '—' : otpPct+'%';
+  $('otpRing').style.background = `conic-gradient(var(--green) ${(otpPct||0)*3.6}deg, #142639 0deg)`;
+  $('uiStreak').textContent = `연속 ${S.streak}편`;
+  const wx = WEATHERS[weather.cur]||WEATHERS.clear;
+  $('uiWxIcon').textContent = wx.icon;
+  $('uiWxLabel').textContent = `${wx.label} · ${weather.wind}kt`;
+  const baseT = {clear:22, cloudy:18, rain:15, storm:13, fog:14}[weather.cur]||18;
+  $('uiTemp').textContent = `${Math.round(baseT + 4*Math.cos((S.dayMin/60-15)/24*Math.PI*2))}°C`;
+}
+function updateSatisfaction(){
+  for(const cell of document.querySelectorAll('.satCell')){
+    const value=Math.round(S.sat[cell.dataset.sat]||0);
+    cell.querySelector('b').textContent=value;
+    cell.querySelector('i').style.cssText=`width:${value}%;background:${satTone(value)}`;
+    cell.title = value>=75?'매우 만족':value>=55?'안정':value>=35?'불만 주의':'불만 심화';
+  }
+  const avg=satAverage(), label=avg>=75?'매우 만족':avg>=55?'안정 운영':avg>=35?'불만 주의':'운영 경고';
+  $('satAverage').textContent=`${label} ${Math.round(avg)}`;
+  $('satAverage').style.color=satTone(avg);
+}
+function missionTargets(){
+  return {
+    flights: Math.min(7, 3 + Math.floor((S.day-1)/2)),
+    otp: Math.min(5, 2 + Math.floor((S.day-1)/3)),
+    income: 4000 + (S.day-1)*750,
+    reward: 2500 + (S.day-1)*350,
+  };
+}
+function updateMission(){
+  const t = missionTargets();
+  const vals = {flights:dayStats.flights, otp:dayStats.otpOn, income:dayStats.income};
+  $('goalFlights').textContent = `${vals.flights} / ${t.flights}`;
+  $('goalOtp').textContent = `${vals.otp} / ${t.otp}`;
+  $('goalIncome').textContent = `₩${vals.income.toLocaleString()} / ₩${t.income.toLocaleString()}`;
+  $('goalFlightsBar').style.width = clamp(vals.flights/t.flights*100,0,100)+'%';
+  $('goalOtpBar').style.width = clamp(vals.otp/t.otp*100,0,100)+'%';
+  $('goalIncomeBar').style.width = clamp(vals.income/t.income*100,0,100)+'%';
+  const done = vals.flights>=t.flights && vals.otp>=t.otp && vals.income>=t.income;
+  $('missionPanel').classList.toggle('complete', done);
+  if(S.goalClaimedDay===S.day){
+    $('missionTitle').textContent = '목표 달성 · 보상 지급 완료';
+    $('missionReward').textContent = '추가 운항으로 연속 정시 보너스에 도전';
+  } else {
+    $('missionTitle').textContent = done ? '목표 달성' : '안전한 허브 운영';
+    $('missionReward').textContent = `완료 보상 ₩${t.reward.toLocaleString()} · 평판 +2`;
+    if(done && started){
+      S.goalClaimedDay = S.day;
+      earn(t.reward); S.rep = clamp(S.rep+2,0,100);
+      showBanner(`오늘의 목표 달성 — ₩${t.reward.toLocaleString()} · 평판 +2`, 'vip', 7);
+      showToast('오늘의 목표 달성', `보상 ₩${t.reward.toLocaleString()} · 평판 +2 지급 완료`);
+      log(`오늘의 목표 달성! 보상 +₩${t.reward.toLocaleString()}, 평판 +2`, 'good');
+      sfx('cash'); save();
+    }
+  }
+}
+function updateOpsSummary(){
+  const free = gates.slice(0,S.up.gates).filter(g=>!g.plane).length;
+  const holding = planes.filter(p=>p.state==='hold');
+  $('runwayState').textContent = runwayUser ? `${runwayLabel()} · ${runwayUser.code}` : `${runwayLabel()} · 사용 가능`;
+  $('runwayState').style.color = runwayUser ? 'var(--gold)' : 'var(--green)';
+  const rec = rwyName(recommendedRunway());
+  $('runwayBtn').disabled = runwayBusy();
+  $('runwayBtn').classList.toggle('active', !runwayBusy() && S.runwayDir===recommendedRunway());
+  $('runwayBtn').firstChild.textContent = `활주로 ${runwayLabel()} 운용`;
+  $('runwayHint').textContent = runwayBusy() ? '활주로 비운 뒤 전환' : `바람 ${weather.wind}kt · 권장 ${rec}`;
+  $('gateState').textContent = `${free} / ${S.up.gates}`;
+  $('holdState').textContent = `${holding.length}편`;
+  const box = $('nextAction'), title = box.querySelector('strong'), desc = box.querySelector('span');
+  const emergency = holding.find(p=>p.kind==='medical') || holding.sort((a,b)=>a.patience-b.patience)[0];
+  const push = planes.find(p=>p.state==='readyPush' && !p.tugCalled);
+  const takeoff = planes.find(p=>p.state==='holdShort');
+  if(emergency){
+    title.textContent = `${emergency.code} 착륙 결정 필요`;
+    desc.textContent = `회항까지 ${Math.ceil(emergency.patience)}초 · 빈 게이트 ${free}개`;
+    box.style.borderLeftColor = emergency.patience<30 ? 'var(--red)' : 'var(--accent)';
+  } else if(push){
+    title.textContent = `${push.code} 푸시백 승인 대기`;
+    desc.textContent = '탑승과 조업이 완료됨'; box.style.borderLeftColor='var(--gold)';
+  } else if(takeoff){
+    title.textContent = `${takeoff.code} 이륙 승인 대기`;
+    desc.textContent = runwayUser ? '활주로가 사용 중임' : '활주로 진입 가능'; box.style.borderLeftColor='var(--accent)';
+  } else if(planes.length){
+    title.textContent = '지상 조업 진행 중';
+    desc.textContent = `${planes.length}편 운영 · 위험 신호 없음`; box.style.borderLeftColor='var(--green)';
+  } else {
+    title.textContent = '운영 준비 완료'; desc.textContent = '항공편 접근을 기다리는 중'; box.style.borderLeftColor='var(--green)';
+  }
+  const hour = Math.floor(S.dayMin/60)%24;
+  $('shiftLabel').textContent = `${hour>=18||hour<6?'야간':'주간'} 근무 · ${isStorm()?'폭풍 대응':isFog()?'저시정 운영':isRainy()?'우천 운영':'정상 운영'}`;
+  $('opsPulse').textContent = S.speed===0 ? '● PAUSED' : '● LIVE';
+  $('opsPulse').style.color = S.speed===0 ? 'var(--gold)' : 'var(--green)';
+}
+$('camHome').onclick = ()=>{ cam = {...HOME_CAM}; sfx('click'); };
+document.querySelectorAll('#tabs .tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('#tabs .tab').forEach(x=>x.classList.toggle('on', x===t));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on', p.id===t.dataset.pane));
+    sfx('click');
+  };
+});
+function syncSpeedBtns(){
+  ['spd0','spd1','spd2','spd3'].forEach((i,v)=>$(i).classList.toggle('active', v===S.speed));
+}
+[['spd0',0],['spd1',1],['spd2',2],['spd3',3]].forEach(([id,v])=>{
+  $(id).onclick = ()=>{ S.speed=v; syncSpeedBtns(); sfx('click'); };
+});
+$('sndBtn').onclick = ()=>{
+  S.sound=!S.sound;
+  $('sndBtn').textContent = S.sound?'🔊':'🔇';
+  if(S.sound) sfx('click'); else stopAmbience();
+  save();
+};
+$('sndBtn').textContent = S.sound?'🔊':'🔇';
+$('runwayBtn').onclick = swapRunway;
+$('helpBtn').onclick = ()=>{
+  prevSpeed = S.speed || 1;
+  S.speed = 0; syncSpeedBtns();
+  $('modal').classList.remove('hidden');
+};
+$('startBtn').onclick = ()=>{
+  $('modal').classList.add('hidden');
+  started = true;
+  S.speed = prevSpeed || 1;
+  syncSpeedBtns();
+  sfx('click');
+};
+$('resetBtn').onclick = ()=>{
+  if(confirm('저장된 진행 상황을 모두 삭제할까요?')){
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem('skyportSaveV1');
+    location.reload();
+  }
+};
+function syncAutoRow(){
+  const row = $('autoRow');
+  row.style.display = S.up.tower>=1 ? 'flex' : 'none';
+  $('autoTOBtn').style.display = S.up.tower>=2 ? 'block' : 'none';
+  $('autoLandBtn').textContent = `🛬 자동 착륙: ${S.autoLand?'ON':'OFF'}`;
+  $('autoLandBtn').classList.toggle('active', S.autoLand);
+  $('autoTOBtn').textContent = `🛫 자동 이륙: ${S.autoTO?'ON':'OFF'}`;
+  $('autoTOBtn').classList.toggle('active', S.autoTO);
+}
+$('autoLandBtn').onclick = ()=>{ S.autoLand=!S.autoLand; syncAutoRow(); save(); sfx('click'); };
+$('autoTOBtn').onclick = ()=>{ S.autoTO=!S.autoTO; syncAutoRow(); save(); sfx('click'); };
+
+/* ══════════════════════════ 접근 항공기 피처 카드 ══════════════════════════ */
+const featCard = document.getElementById('featCard');
+let featSig = '';
+function featuredPlane(){
+  if(selectedFlightId!=null){
+    const p = planes.find(x=>x.id===selectedFlightId);
+    if(p) return p;
+    selectedFlightId = null;
+  }
+  const holds = planes.filter(p=>p.state==='hold');
+  return holds.find(p=>p.kind==='medical')
+      || (holds.length ? holds.reduce((a,b)=>a.patience<b.patience?a:b) : null)
+      || planes.find(p=>p.state==='readyPush' && !p.tugCalled)
+      || planes.find(p=>p.state==='holdShort')
+      || planes[0] || null;
+}
+function featMain(p){
+  if(p.state==='hold'){
+    const ok = !runwayUser && !!freeGate();
+    return ['🛬 착륙 허가','', ok, ok?null:(runwayUser?'활주로 사용 중':'빈 게이트 없음')];
+  }
+  if(p.state==='readyPush' && !p.tugCalled) return ['🚛 푸시백 허가','push',true,null];
+  if(p.state==='holdShort'){
+    const ok = !runwayUser;
+    return ['🛫 이륙 허가','to', ok, ok?null:'활주로 사용 중'];
+  }
+  const meta = STATE_META[p.state]||['진행 중'];
+  return [meta[0]+'…','',false,null];
+}
+function updateFeatured(){
+  const p = featuredPlane();
+  if(!p){
+    if(featSig!=='empty'){
+      featSig='empty';
+      featCard.className='';
+      featCard.innerHTML='<div class="fcEmpty"><b>✈</b>접근 중인 항공기가 없습니다</div>';
+    }
+    return;
+  }
+  const [aLabel,aCls,aOn,aNote] = featMain(p);
+  const urg = p.kind==='medical'||(p.state==='hold'&&p.patience<30) ? 'hi' : p.kind==='vip' ? 'vip' : 'mid';
+  const sig = [p.id,p.state,Math.ceil(p.patience||0),p.gate?p.gate.idx:-1,aOn,runwayUser?1:0,Math.floor(S.dayMin),p.holdExtended?1:0].join(':');
+  if(sig===featSig) return;
+  featSig = sig;
+  const inbound = ['hold','land','taxiIn','deboard'].includes(p.state);
+  const route = p.origin
+    ? (inbound ? `${p.origin[0]} (${p.origin[1]}) → ${S.name} (${HOME_IATA})` : `${S.name} (${HOME_IATA}) → ${p.origin[0]} (${p.origin[1]})`)
+    : '';
+  const urgTxt = urg==='hi'?'높음':urg==='vip'?'VIP':'보통';
+  const pt = Math.max(0, Math.ceil(p.patience||0));
+  const waitTxt = p.state==='hold'
+    ? `대기 ${String(Math.floor(pt/60)).padStart(2,'0')}:${String(pt%60).padStart(2,'0')}`
+    : (STATE_META[p.state]||['—'])[0];
+  const g = p.gate || freeGate();
+  const gateTxt = p.gate ? `게이트 ${p.gate.idx+1} 배정` : g ? `게이트 ${g.idx+1} 사용 가능` : '게이트 없음';
+  featCard.className = urg==='hi'?'urgent':urg==='vip'?'vipCard':'';
+  featCard.innerHTML = `<div class="fcIn">
+    <div class="fcTop">
+      <div class="fcPlane">${p.kind==='medical'?'🚑':p.kind==='vip'?'👑':'✈️'}</div>
+      <div class="fcId"><b>${p.code}</b><span>${p.model||p.type.name} · ${route}</span></div>
+      <div class="fcUrg ${urg}"><small>긴급도</small><b>${urgTxt}</b></div>
+    </div>
+    <div class="fcStats">
+      <div><small>🕐 대기 시간</small><b class="${p.state==='hold'&&p.patience<30?'bad':p.state==='hold'?'warn':''}">${waitTxt}</b></div>
+      <div><small>🛄 게이트 상태</small><b class="${p.gate||g?'ok':'bad'}">${gateTxt}</b></div>
+      <div><small>🕓 ${inbound?'예상 도착':'출발 예정'}</small><b>${flightTime(p)}</b></div>
+    </div>
+    <button class="bigAct ${aCls}" id="featAct" ${aOn?'':'disabled'}>${aLabel}${aNote?` — ${aNote}`:''}</button>
+    <div class="fcSub">
+      <button id="featVector">↪ 벡터 지시</button>
+      <button id="featHold" ${p.state==='hold'&&!p.holdExtended?'':'disabled'}>◷ 대기 지시</button>
+    </div>
+  </div>`;
+}
+featCard.addEventListener('click', e=>{
+  const p = featuredPlane(); if(!p) return;
+  const id = e.target.closest('button')?.id;
+  if(id==='featAct'){
+    if(p.state==='hold') clearLanding(p);
+    else if(p.state==='readyPush') clearPushback(p);
+    else if(p.state==='holdShort') clearTakeoff(p);
+    featSig=''; updateFeatured(); updateStrips();
+  } else if(id==='featVector'){
+    const holds = planes.filter(x=>x.state==='hold');
+    if(holds.length){
+      const i = holds.findIndex(x=>x.id===p.id);
+      const next = holds[(i+1+holds.length)%holds.length];
+      selectedFlightId = next.id;
+      if(holds.length>1) log(`벡터 지시 — ${next.code}편 우선 접근 배열`, 'info');
+    }
+    featSig=''; updateFeatured(); updateStrips(); sfx('click');
+  } else if(id==='featHold'){
+    if(p.state==='hold' && !p.holdExtended){
+      p.holdExtended = true;
+      p.patience = Math.min(p.kind==='medical'?55:100, p.patience+22);
+      log(`${p.code}편 대기 지시 — 체공 연장 (+22초)`, 'info');
+      featSig=''; updateFeatured(); sfx('click');
+    }
+  }
+});
+document.getElementById('listFilter').onchange = e=>{ listFilterVal = e.target.value; updateStrips(); sfx('click'); };
+
+/* ══════════════════════════ 퀵액션 툴바 ══════════════════════════ */
+const QA_CD = {fuel:0, maint:0, sec:0, clean:0};
+function qaTry(key, cost, cd, fn, failMsg){
+  if(QA_CD[key] > gameT) return;
+  if(cost>0 && S.money<cost){ log('자금이 부족합니다','bad'); sfx('bad'); return; }
+  if(!fn()){ if(failMsg){ log(failMsg,'bad'); sfx('bad'); } return; }
+  if(cost>0) spend(cost);
+  QA_CD[key] = gameT + cd;
+  sfx('cash'); save();
+}
+$('qaGround').onclick = ()=>{
+  const p = planes.find(x=>x.state==='readyPush' && !x.tugCalled);
+  if(p) clearPushback(p);
+  else { log('푸시백 대기 중인 항공기가 없습니다','bad'); sfx('bad'); }
+};
+$('qaFuel').onclick = ()=>qaTry('fuel',400,20,()=>{
+  const p = planes.find(x=>x.state==='service' && (!x.svcFuel || !x.svcCater));
+  if(!p) return false;
+  for(const v of vehicles) if(v.plane===p && v.state==='work') v.workT = Math.min(v.workT, .8);
+  log(`⛽ ${p.code}편 급유·조업 긴급 지원 (-₩400)`, 'info');
+  return true;
+}, '조업 중인 항공기가 없습니다');
+$('qaMaint').onclick = ()=>qaTry('maint',600,90,()=>{
+  adjustSat('pilot',2.2); adjustSat('crew',1.4);
+  log('🔧 정비팀 특별 점검 — 기장·승무원 만족 상승 (-₩600)', 'good');
+  return true;
+});
+$('qaSec').onclick = ()=>qaTry('sec',500,90,()=>{
+  adjustSat('staff',1.8); S.rep = clamp(S.rep+.6,0,100);
+  log('🛡️ 보안 순찰 강화 — 직원 만족·평판 상승 (-₩500)', 'good');
+  return true;
+});
+$('qaClean').onclick = ()=>qaTry('clean',300,60,()=>{
+  adjustSat('passenger',1.6); adjustSat('visitor',1.6);
+  log('🧹 터미널 특별 청소 — 이용객·방문객 만족 상승 (-₩300)', 'good');
+  return true;
+});
+function updateTools(){
+  const map = {qaFuel:'fuel', qaMaint:'maint', qaSec:'sec', qaClean:'clean'};
+  for(const [id,key] of Object.entries(map)){
+    const onCd = QA_CD[key] > gameT;
+    const b = $(id);
+    b.classList.toggle('cd', onCd);
+    b.disabled = onCd;
+  }
+  $('qaGround').disabled = !planes.some(x=>x.state==='readyPush' && !x.tugCalled);
+}
+
+/* ══════════════════════════ 이벤트 토스트 & 통계 & 도크 ══════════════════════════ */
+let toastTimer = null;
+function showToast(title, body){
+  $('toastTitle').textContent = title;
+  $('toastBody').textContent = body;
+  $('eventToast').classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>$('eventToast').classList.add('hidden'), 14000);
+}
+$('toastOk').onclick = ()=>{ $('eventToast').classList.add('hidden'); sfx('click'); };
+$('statsBtn').onclick = ()=>{
+  const otp = S.otpTot>0 ? Math.round(S.otpOn/S.otpTot*100)+'%' : '—';
+  $('statsBody').innerHTML = `
+   <div class="rrow"><span>✈ 누적 운항</span><b>${S.totFlights.toLocaleString()}편</b></div>
+   <div class="rrow"><span>🧳 누적 처리 승객</span><b>${S.totPax.toLocaleString()}명</b></div>
+   <div class="rrow"><span>⏱ 누적 정시율</span><b>${otp}</b></div>
+   <div class="rrow"><span>🔥 연속 정시 출발</span><b>${S.streak}편</b></div>
+   <div class="rrow"><span>⭐ 평판</span><b>${(S.rep/20).toFixed(1)} / 5.0</b></div>
+   <div class="rrow"><span>💰 보유 자금</span><b>₩${Math.floor(S.money).toLocaleString()}</b></div>
+   <div class="rrow"><span>📅 오늘 (${S.day}일차)</span><b>운항 ${dayStats.flights}편 · 승객 ${dayStats.pax}명</b></div>
+   <div class="rrow"><span>📈 오늘 수입 / 지출</span><b><span style="color:var(--green)">+₩${dayStats.income.toLocaleString()}</span> / <span style="color:var(--red)">-₩${dayStats.spent.toLocaleString()}</span></b></div>
+   <div class="rrow"><span>🏗 시설</span><b>게이트 ${S.up.gates} · 카운터 ${S.up.counters} · 보안 ${S.up.security} · 고속유도로 ${S.up.rapid}</b></div>
+   <div class="rrow"><span>😊 만족도</span><b>이용객 ${Math.round(S.sat.passenger)} · 방문 ${Math.round(S.sat.visitor)} · 승무원 ${Math.round(S.sat.crew)} · 기장 ${Math.round(S.sat.pilot)} · 직원 ${Math.round(S.sat.staff)}</b></div>`;
+  prevSpeed = S.speed || 1; S.speed = 0; syncSpeedBtns();
+  $('statsModal').classList.remove('hidden');
+  sfx('click');
+};
+$('statsClose').onclick = ()=>{
+  $('statsModal').classList.add('hidden');
+  S.speed = prevSpeed; syncSpeedBtns(); sfx('click');
+};
+$('infoBtn').onclick = ()=>$('helpBtn').onclick();
+$('alertBtn').onclick = ()=>{
+  document.body.classList.toggle('logWide');
+  $('alertBtn').classList.toggle('active', document.body.classList.contains('logWide'));
+  sfx('click');
+};
+
+/* ══════════════════════════ 캔버스 입력 ══════════════════════════ */
+function rawXY(e){
+  const r = cv.getBoundingClientRect();
+  return [(e.clientX-r.left)*(W/r.width), (e.clientY-r.top)*(H/r.height)];
+}
+function canvasXY(e){
+  const [cx, cy] = rawXY(e);
+  const sx = (cx-cam.tx)/cam.k, sy = (cy-cam.ty)/cam.k;
+  const [wx, wy] = unproject(sx, sy);
+  return [wx, wy, sx, sy];
+}
+function clampCam(){
+  cam.k = clamp(cam.k, 0.85, 3);
+  cam.tx = clamp(cam.tx, W*0.5 - W*cam.k, W*0.5);
+  cam.ty = clamp(cam.ty, H*0.5 - H*cam.k, H*0.5);
+}
+let drag = null;
+cv.addEventListener('mousedown', e=>{
+  if(e.button!==0) return;
+  const [cx,cy] = rawXY(e);
+  drag = {cx0:cx, cy0:cy, tx0:cam.tx, ty0:cam.ty, moved:false};
+});
+cv.addEventListener('mousemove', e=>{
+  const [wx,wy,sx,sy] = canvasXY(e);
+  mouse.x=wx; mouse.y=wy; mouse.sx=sx; mouse.sy=sy; mouse.inside=true;
+  if(drag){
+    const [cx,cy] = rawXY(e);
+    const dx = cx-drag.cx0, dy = cy-drag.cy0;
+    if(Math.abs(dx)+Math.abs(dy) > 7) drag.moved = true;
+    if(drag.moved && !placing && !removing){
+      cam.tx = drag.tx0 + dx;
+      cam.ty = drag.ty0 + dy;
+      clampCam();
+    }
+  }
+});
+cv.addEventListener('mouseup', e=>{
+  if(e.button!==0){ return; }
+  const wasPan = drag && drag.moved && !placing && !removing;
+  drag = null;
+  if(!wasPan) doClick(e);
+});
+cv.addEventListener('mouseleave', ()=>{ mouse.inside=false; drag=null; });
+cv.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const [cx,cy] = rawXY(e);
+  const k2 = clamp(cam.k * Math.exp(-e.deltaY*0.0012), 0.85, 3);
+  cam.tx = cx - (cx-cam.tx)*k2/cam.k;
+  cam.ty = cy - (cy-cam.ty)*k2/cam.k;
+  cam.k = k2;
+  clampCam();
+}, {passive:false});
+
+/* 터치 입력: 기존 rawXY/canvasXY/doClick은 e.clientX/e.clientY만 읽으므로
+   터치 좌표를 같은 모양으로 어댑팅해 팬·탭 로직을 그대로 재사용함. */
+function touchPt(t){ return {clientX:t.clientX, clientY:t.clientY, button:0}; }
+function touchDist(a,b){ return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
+function touchMid(a,b){ return {clientX:(a.clientX+b.clientX)/2, clientY:(a.clientY+b.clientY)/2}; }
+let pinch = null;
+cv.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    pinch = null;
+    const [cx,cy] = rawXY(touchPt(e.touches[0]));
+    drag = {cx0:cx, cy0:cy, tx0:cam.tx, ty0:cam.ty, moved:false};
+  } else if(e.touches.length===2){
+    drag = null;
+    pinch = {d0:touchDist(e.touches[0],e.touches[1]), k0:cam.k, mid:touchMid(e.touches[0],e.touches[1])};
+  }
+}, {passive:false});
+cv.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(e.touches.length===1 && drag){
+    const p = touchPt(e.touches[0]);
+    const [wx,wy,sx,sy] = canvasXY(p);
+    mouse.x=wx; mouse.y=wy; mouse.sx=sx; mouse.sy=sy; mouse.inside=true;
+    const [cx,cy] = rawXY(p);
+    const dx = cx-drag.cx0, dy = cy-drag.cy0;
+    if(Math.abs(dx)+Math.abs(dy) > 7) drag.moved = true;
+    if(drag.moved && !placing && !removing){
+      cam.tx = drag.tx0 + dx;
+      cam.ty = drag.ty0 + dy;
+      clampCam();
+    }
+  } else if(e.touches.length===2 && pinch){
+    const mid = touchMid(e.touches[0], e.touches[1]);
+    const [cx,cy] = rawXY(mid);
+    const k2 = clamp(pinch.k0 * (touchDist(e.touches[0],e.touches[1])/pinch.d0), 0.85, 3);
+    cam.tx = cx - (cx-cam.tx)*k2/cam.k;
+    cam.ty = cy - (cy-cam.ty)*k2/cam.k;
+    cam.k = k2;
+    clampCam();
+  }
+}, {passive:false});
+cv.addEventListener('touchend', e=>{
+  e.preventDefault();
+  if(e.touches.length===0){
+    const wasPan = drag && drag.moved && !placing && !removing;
+    const wasPinch = pinch !== null;
+    const endedDrag = drag;
+    drag = null; pinch = null;
+    if(!wasPan && !wasPinch && endedDrag && e.changedTouches.length) doClick(touchPt(e.changedTouches[0]));
+  } else if(e.touches.length===1){
+    // 두 손가락 핀치에서 한 손가락으로 전환 — 팬 기준점을 다시 잡아 튐 방지.
+    pinch = null;
+    const [cx,cy] = rawXY(touchPt(e.touches[0]));
+    drag = {cx0:cx, cy0:cy, tx0:cam.tx, ty0:cam.ty, moved:true};
+  }
+}, {passive:false});
+cv.addEventListener('touchcancel', ()=>{ drag=null; pinch=null; mouse.inside=false; }, {passive:false});
+cv.addEventListener('contextmenu', e=>{
+  e.preventDefault();
+  if(placing||removing){ placing=null; removing=false; syncDecorUI(); }
+});
+window.addEventListener('keydown', e=>{
+  const tag = e.target && e.target.tagName;
+  if(tag==='INPUT' || tag==='TEXTAREA') return;
+  if(e.key==='Escape' && (placing||removing)){ placing=null; removing=false; syncDecorUI(); return; }
+  if(!$('modal').classList.contains('hidden') || !$('report').classList.contains('hidden') || !$('statsModal').classList.contains('hidden')) return;
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(S.speed===0) S.speed = prevSpeed || 1;
+    else { prevSpeed=S.speed; S.speed=0; }
+    syncSpeedBtns(); sfx('click');
+  } else if(['1','2','3'].includes(e.key)){
+    S.speed=Number(e.key); prevSpeed=S.speed; syncSpeedBtns(); sfx('click');
+  } else if(e.key.toLowerCase()==='h') $('camHome').click();
+});
+function doClick(e){
+  const [wx, wy, sx, sy] = canvasXY(e);
+  if(placing){
+    const it = DECOR[placing];
+    let px=wx, py=wy;
+    if(it.cap){
+      const bay=nearestRetailBay(wx,wy);
+      if(!bay || S.decor.some(d=>DECOR[d.t]?.cap && d.x===bay[0] && d.y===bay[1])){
+        sfx('bad'); log('상업시설은 비어 있는 상업 구역에만 배치할 수 있습니다', 'bad'); return;
+      }
+      [px,py]=bay;
+    } else if(!validSpot(px,py)){ sfx('bad'); return; }
+    if(S.money < it.cost){ sfx('bad'); log('자금이 부족합니다', 'bad'); return; }
+    spend(it.cost);
+    S.decor.push({t:placing, x:Math.round(px), y:Math.round(py)});
+    popMoney(px, py-20, '-₩'+it.cost.toLocaleString(), '#ffd166');
+    log(`${it.em} ${it.name} 설치 완료`, 'ev');
+    sfx('cash');
+    save();
+    return;
+  }
+  if(removing){
+    let best=null, bd=24;
+    for(const d of S.decor){ const dd=dist(wx,wy,d.x,d.y); if(dd<bd){bd=dd;best=d;} }
+    if(best){
+      const it = DECOR[best.t];
+      const refund = Math.floor(it.cost/2);
+      earn(refund);
+      S.decor = S.decor.filter(d=>d!==best);
+      popMoney(wx, wy-20, '+₩'+refund.toLocaleString());
+      log(`${it.em} ${it.name} 철거 (환불 ₩${refund.toLocaleString()})`, 'ev');
+      sfx('click');
+      save();
+    }
+    return;
+  }
+  // 비행기 선택 (화면 좌표 기준)
+  let best=null, bd=44;
+  for(const p of planes){
+    const s = iso(p.x, p.y, 5+p.alt*95);
+    const d = dist(sx,sy,s[0],s[1]);
+    if(d<bd){bd=d;best=p;}
+  }
+  if(best && best.strip){
+    best.strip.root.classList.add('flash');
+    best.strip.root.scrollIntoView({block:'nearest',behavior:'smooth'});
+    setTimeout(()=>best.strip && best.strip.root.classList.remove('flash'), 1200);
+  }
+}
+
+/* ══════════════════════════ 메인 루프 ══════════════════════════ */
+window.getSkyportRenderState = ()=>({
+  S, weather, cam, planes: planes.concat(ambient, AMBIENT_PARKED),
+  pax, walkers, staff, carts, vehicles, gates,
+  gameT, started, runwayUser,
+});
+/* 자동화 테스트·디버그 훅: rAF가 정지된 환경에서 시뮬레이션을 수동 구동 */
+window.skyportDebug = {
+  tick(sec){
+    const steps = Math.ceil(sec/0.034);
+    for(let i=0;i<steps;i++) updateWorld(sec/steps);
+    draw();
+    updateStrips(); updateHUD(); updateSatisfaction(); updateShop(); updateBanner();
+    updateMission(); updateOpsSummary(); updateFeatured(); updateTools();
+  },
+  spawn:k=>spawnPlane(k),
+  planes:()=>planes.map(p=>({code:p.code, state:p.state, model:p.model, origin:p.origin})),
+  ambient:()=>ambient.map(a=>({code:a.code, state:a.state, x:Math.round(a.x), alt:+a.alt.toFixed(2)})),
+};
+let lastT = performance.now(), uiT = 0, saveT = 0, lastDraw = 0;
+const canvasWrapEl = document.getElementById('canvasWrap');
+function frame(now){
+  let dt = Math.min(0.05, (now-lastT)/1000);
+  lastT = now;
+  if(started && S.speed>0){
+    const sdt = dt*S.speed;
+    const steps = Math.ceil(sdt/0.034);
+    for(let i=0;i<steps;i++) updateWorld(sdt/steps);
+    saveT += dt;
+    if(saveT>12){ saveT=0; save(); }
+  }
+  // 3d-scene.js와 동일한 패턴: 좁은 화면에서는 2D 캔버스 풀 리드로우 빈도를 낮춤.
+  const drawDelay = canvasWrapEl.clientWidth<760 ? 40 : 0;
+  if(now-lastDraw>=drawDelay){ lastDraw=now; draw(); }
+  uiT += dt;
+  if(uiT>0.15){
+    uiT=0; updateStrips(); updateHUD(); updateSatisfaction(); updateShop(); updateBanner();
+    updateMission(); updateOpsSummary(); updateFeatured(); updateTools();
+  }
+  requestAnimationFrame(frame);
+}
+syncStaff(); syncCarts();
+updateHUD(); updateSatisfaction(); updateShop(); updateLogo(); syncAutoRow(); syncSpeedBtns(); updateMission(); updateOpsSummary();
+log(`${S.name} 국제공항 관제탑 운영 개시`, 'info');
+requestAnimationFrame(frame);
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js"
+  }
+}
+</script>
+<script type="module" src="./3d-scene.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('SW 등록 실패', err));
+    });
+  }
+</script>
+</body>
+</html>
